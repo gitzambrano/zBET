@@ -25,245 +25,71 @@ import pandas as pd
 
 
 # =============================================================================
-# USER CONFIGURATION — Edit this block to set up a new rotor case
+# USER CONFIGURATION
 # =============================================================================
 
-# -----------------------------------------------------------------------------
-# 1. ATMOSPHERE & AMBIENT FLUID PROPERTIES
-# -----------------------------------------------------------------------------
-# RHO: Ambient air density [kg/m^3]
-#   - Type: float > 0
-#   - Standard ISA sea level: 1.225 kg/m^3
-#   - For hot-and-high conditions, set the corresponding density (e.g. 1.05 kg/m^3 at 2000 m).
-RHO = 1.225
+# --- 1. Atmosphere & Ambient Fluid -------------------------------------------
+RHO = 1.225                 # Air density [kg/m^3]
+SPEED_OF_SOUND = 340.3      # Speed of sound [m/s] (used for Mach number & Prandtl-Glauert)
 
-# SPEED_OF_SOUND: Speed of sound in ambient air [m/s]
-#   - Type: float > 0
-#   - Standard ISA sea level (15°C / 288.15 K): 340.3 m/s
-#   - Used to compute the blade tip Mach number (Mach_tip) and Prandtl-Glauert compressibility.
-SPEED_OF_SOUND = 340.3
+# --- 2. Rotor Geometry & Aerodynamics ----------------------------------------
+RPM = 390.0                 # Rotational speed [RPM]
+R = 5.5                     # Rotor radius [m]
+R0_BAR = 0.15               # Non-dimensional root cutout r0/R [0.0 to 1.0)
+A_LIFT = 5.73               # 2D section lift curve slope a0 [1/rad]
+CD0 = 0.009                 # 2D section profile drag coefficient [-]
 
-
-# -----------------------------------------------------------------------------
-# 2. ROTOR BASIC GEOMETRY & AIRFOIL AERODYNAMICS
-# -----------------------------------------------------------------------------
-# RPM: Rotor rotational speed in revolutions per minute [RPM]
-#   - Type: float > 0
-#   - Typical values: 350 - 450 RPM for light/medium utility helicopters; 1000+ RPM for small eVTOL rotors.
-#   - Determines rotational tip speed: Vtip = Omega * R = (RPM * 2 * pi / 60) * R [m/s].
-RPM = 390.0
-
-# R: Rotor blade tip radius [m]
-#   - Type: float > 0 (distance from hub center to blade tip)
-#   - Example: 5.5 m yields an 11.0 m rotor diameter. Total disk area is A = pi * R^2 [m^2].
-R = 5.5
-
-# R0_BAR: Non-dimensional root cutout station x0 = r0 / R [-]
-#   - Type: float in range [0.0, 1.0)
-#   - Station where the aerodynamic lifting section begins (inside r < r0 is hub / pitch cuff mechanism).
-#   - Typical values: 0.10 to 0.25 (default: 0.15).
-R0_BAR = 0.15
-
-# A_LIFT: Incompressible 2D section lift curve slope a0 = dCl/d(alpha) [1/rad]
-#   - Type: float > 0
-#   - Theoretical thin airfoil value: 2 * pi ~= 6.28 rad^-1.
-#   - Typical helicopter airfoils (e.g. NACA 0012, VR-7): 5.7 to 5.9 rad^-1 (default: 5.73 rad^-1).
-A_LIFT = 5.73
-
-# CD0: 2D section profile parasite drag coefficient [-]
-#   - Type: float >= 0
-#   - Represents minimum skin-friction and form drag of the blade airfoil at low lift.
-#   - Typical values: 0.008 to 0.012 (default: 0.009 for smooth NACA 0012).
-CD0 = 0.009
-
-
-# -----------------------------------------------------------------------------
-# 3. BLADE SOLIDITY & CHORD CONFIGURATION
-# -----------------------------------------------------------------------------
-# SOLIDITY_MODE: Method used to define blade chord and rotor solidity [-]
-#   Choose one of:
-#     "sigma_ref"  -> Option 1: Directly enter reference solidity SIGMA_REF (constant chord).
-#     "sigma_geom" -> Option 2: Directly enter true geometric physical solidity SIGMA_GEOM (constant chord).
-#     "chords"     -> Option 3: Enter blade count N_BLADES, root chord CHORD_ROOT, and tip chord CHORD_TIP.
-#                                Supports both untapered and linearly tapered blades.
+# --- 3. Solidity & Chord -----------------------------------------------------
+# Options: "sigma_ref" (reference solidity) | "sigma_geom" (geometric solidity) | "chords" (root & tip chords)
 SOLIDITY_MODE = "sigma_ref"
+SIGMA_REF = 0.075           # Reference solidity [-] (used if SOLIDITY_MODE = "sigma_ref")
+SIGMA_GEOM = 0.06375        # Geometric physical solidity [-] (used if SOLIDITY_MODE = "sigma_geom")
+N_BLADES = 4                # Number of blades [-] (used if SOLIDITY_MODE = "chords" or tip loss "sissingh")
+CHORD_ROOT = 0.324          # Root chord at station x0 [m] (used if SOLIDITY_MODE = "chords")
+CHORD_TIP = 0.324           # Tip chord at station x=1.0 [m] (used if SOLIDITY_MODE = "chords")
 
-# --- Option 1 Parameter (active when SOLIDITY_MODE = "sigma_ref"):
-# SIGMA_REF: Reference solidity extrapolated to hub center r=0 [-]
-#   - Type: float > 0
-#   - Formula for rectangular blade: sigma_ref = N * c / (pi * R).
-#   - Typical helicopter rotors: 0.05 to 0.09 (default: 0.075).
-SIGMA_REF = 0.075
-
-# --- Option 2 Parameter (active when SOLIDITY_MODE = "sigma_geom"):
-# SIGMA_GEOM: True physical geometric solidity [-]
-#   - Type: float > 0
-#   - Formula: sigma_geom = (Actual lifting blade surface area from x0 to 1) / (pi * R^2).
-#   - For rectangular blades: sigma_geom = (1 - x0) * sigma_ref (e.g. (1 - 0.15) * 0.075 = 0.06375).
-SIGMA_GEOM = 0.06375
-
-# --- Option 3 Parameters (active when SOLIDITY_MODE = "chords" or "taper"):
-# N_BLADES: Total number of rotor blades [-]
-#   - Type: integer >= 1 (typically 2, 3, 4, or 5; default: 4).
-N_BLADES = 4
-
-# CHORD_ROOT: Blade chord length at the root cutout station x0 = R0_BAR [m]
-#   - Type: float > 0
-CHORD_ROOT = 0.324
-
-# CHORD_TIP: Blade chord length at the blade tip station x = 1.0 [m]
-#   - Type: float > 0
-#   - If CHORD_TIP == CHORD_ROOT: untapered rectangular blade.
-#   - If CHORD_TIP < CHORD_ROOT: linearly tapered blade (taper ratio = CHORD_TIP / CHORD_ROOT).
-CHORD_TIP = 0.324
-
-
-# -----------------------------------------------------------------------------
-# 4. BLADE PITCH DISTRIBUTION & HOVER TRIM MODES
-# -----------------------------------------------------------------------------
-# PITCH_MODE: Blade pitch angle distribution along the blade span [-]
-#   Choose one of:
-#     "constant"     -> Uniform pitch across all radial stations (theta(x) = theta0).
-#     "linear_twist" -> Linear twist from root station x0 to tip station x=1.0.
+# --- 4. Pitch & Hover Trim ---------------------------------------------------
+# Options: "constant" (uniform pitch) | "linear_twist" (linear twist from x0 to tip)
 PITCH_MODE = "constant"
 
-# HOVER_TRIM_MODE: Hover trim condition evaluated at hover (mu=0) and frozen for the sweep [-]
-#   Choose one of:
-#     "collective" -> RPM is held constant. Adjusts collective pitch to match the hover target thrust.
-#                     NOTE: When PITCH_MODE="linear_twist", total twist (THETA_TIP - THETA_ROOT)
-#                     is preserved strictly constant; a uniform collective offset is added across the blade.
-#     "rpm"        -> Pitch and twist angles are held fixed. Solves for the required RPM to generate
-#                     the target hover thrust in Newtons (THRUST_HOVER_N).
-#     "none"       -> No hover trim. Uses prescribed RPM and THETA0 (or THETA_ROOT_DEG / THETA_TIP_DEG) directly.
+# Options: "collective" (adjusts theta0 to match hover target) | "rpm" (adjusts RPM to match target thrust) | "none" (prescribed theta0/RPM)
 HOVER_TRIM_MODE = "collective"
 COLLECTIVE_MODE = HOVER_TRIM_MODE  # Compatibility alias
 
-# Target thrust inputs for HOVER_TRIM_MODE:
-# CT_HOVER_TARGET: Target hover thrust coefficient CT = T / (rho * A * Vtip^2) [-]
-#   - Type: float > 0 or None.
-#   - Used when HOVER_TRIM_MODE = "collective". Typical helicopter loading: 0.005 to 0.008 (default: 0.0065).
-#   - Leave as None if specifying THRUST_HOVER_N instead.
-CT_HOVER_TARGET = 0.0065
+CT_HOVER_TARGET = 0.0065    # Target hover thrust coefficient [-] (for "collective" mode; set None if using THRUST_HOVER_N)
+THRUST_HOVER_N = None       # Target hover thrust [N] (required for "rpm" mode, overrides CT_HOVER_TARGET in "collective")
+THETA0 = None               # Prescribed collective pitch [rad] (used if HOVER_TRIM_MODE = "none" & PITCH_MODE = "constant")
+THETA_ROOT_DEG = 12.0       # Root pitch [deg] at x0 (used if PITCH_MODE = "linear_twist"; twist preserved during collective trim)
+THETA_TIP_DEG = 4.0         # Tip pitch [deg] at x=1.0 (used if PITCH_MODE = "linear_twist")
 
-# THRUST_HOVER_N: Target hover thrust in Newtons [N]
-#   - Type: float > 0 or None.
-#   - Example: 35000.0 N (~3570 kgf) for utility helicopter gross weight.
-#   - In "collective" mode, setting this overrides CT_HOVER_TARGET.
-#   - In "rpm" mode, this is required.
-THRUST_HOVER_N = None
-
-# THETA0: Prescribed collective pitch angle in radians [rad]
-#   - Type: float or None.
-#   - Used only when HOVER_TRIM_MODE = "none" and PITCH_MODE = "constant".
-#   - Set to None when using hover trim modes.
-THETA0 = None
-
-# Linear twist pitch angles in degrees (active when PITCH_MODE = "linear_twist"):
-# THETA_ROOT_DEG: Geometric blade pitch angle at root cutout station x0 [deg]
-#   - Type: float.
-THETA_ROOT_DEG = 12.0
-
-# THETA_TIP_DEG: Geometric blade pitch angle at blade tip station x = 1.0 [deg]
-#   - Type: float.
-#   - Total twist is delta_twist = THETA_TIP_DEG - THETA_ROOT_DEG (e.g. 4.0 - 12.0 = -8.0 deg washout).
-#   - In "collective" trim mode, this total twist is strictly preserved.
-THETA_TIP_DEG = 4.0
-
-
-# -----------------------------------------------------------------------------
-# 5. ADVANCED AERODYNAMIC CORRECTIONS (OPTIONAL)
-# -----------------------------------------------------------------------------
-# TIP_LOSS_MODE: Blade tip vortex loss modeling method [-]
-#   Choose one of:
-#     "none"     -> Disabled: integration extends to blade tip (B = 1.0, classical baseline).
-#     "fixed"    -> Uses fixed prescribed tip loss factor B = TIP_LOSS_B.
-#     "sissingh" -> Dynamic self-adjusting formula: B = 1 - sqrt(2 * CT) / N_BLADES.
+# --- 5. Aerodynamic Corrections ----------------------------------------------
+# Options: "none" (B = 1.0) | "fixed" (uses TIP_LOSS_B) | "sissingh" (B = 1 - sqrt(2*CT)/N_BLADES)
 TIP_LOSS_MODE = "none"
+TIP_LOSS_B = 0.97           # Tip loss factor B [-] (used if TIP_LOSS_MODE = "fixed")
+USE_PRANDTL_GLAUERT = False # Subsonic compressibility correction on lift curve slope (True | False)
 
-# TIP_LOSS_B: Prescribed tip loss factor B [-]
-#   - Type: float in range (x0, 1.0] (typically 0.96 to 0.98; active when TIP_LOSS_MODE = "fixed").
-TIP_LOSS_B = 0.97
-
-# USE_PRANDTL_GLAUERT: Subsonic compressibility correction on lift curve slope 'a' [-]
-#   - Type: bool (False or True)
-#   - False: Incompressible baseline (a = A_LIFT is constant).
-#   - True:  Compressible correction a = a0 / sqrt(1 - M_eff^2) based on effective 0.75R blade Mach in flight.
-USE_PRANDTL_GLAUERT = False
-
-
-# -----------------------------------------------------------------------------
-# 6. INFLOW MODELS & INDUCED POWER FACTOR
-# -----------------------------------------------------------------------------
-# INFLOW_MODELS: List of spatial inflow models to evaluate across the advance ratio sweep
-#   Available models:
-#     "uniform":          Classic uniform inflow (Glauert: Kx = 0, Ky = 0).
-#     "coleman_simple":   Simple Coleman wake skew model (Coleman 1945: Kx = tan(chi/2), Ky = 0).
-#     "coleman_feingold": NDARC official model (Kx = fx*(15*pi/32)*tan(chi/2), Ky = -fy*2*mu).
-#     "drees":            Drees model (Drees 1949: Kx = (4/3)*(1 - 1.8*mu^2)*tan(chi/2), Ky = -2*mu).
+# --- 6. Inflow Models & Induced Power ----------------------------------------
+# Available models: "uniform", "coleman_simple", "coleman_feingold", "drees"
 INFLOW_MODELS = ["uniform", "coleman_simple", "coleman_feingold", "drees"]
+FX_COLEMAN = 1.0            # Longitudinal inflow gradient scale factor [-]
+FY_COLEMAN = 1.0            # Lateral inflow gradient scale factor [-] (set 0.0 to disable lateral inflow)
+K_IND = 1.15                # Induced power factor [-] (CQi = K_IND * lambda_i * CT + ...)
 
-# FX_COLEMAN: Longitudinal inflow gradient scaling factor for NDARC Coleman-Feingold [-]
-#   - Type: float (default: 1.0).
-FX_COLEMAN = 1.0
+# --- 7. Operating Sweep & Output ---------------------------------------------
+MU_MIN = 0.0                # Minimum advance ratio [-]
+MU_MAX = 0.40               # Maximum advance ratio [-]
+MU_STEP = 0.05              # Advance ratio step size [-]
 
-# FY_COLEMAN: Lateral inflow gradient scaling factor for NDARC Coleman-Feingold [-]
-#   - Type: float (default: 1.0 for Ky = -2*mu; set to 0.0 to disable lateral inflow).
-FY_COLEMAN = 1.0
-
-# K_IND: Semi-empirical induced shaft power factor [-]
-#   - Type: float > 0
-#   - Accounts for non-uniform downwash and tip losses beyond 1D momentum theory.
-#   - Multiplies the induced inflow term in shaft torque: CQi = K_IND * lambda_i * CT + ...
-#   - Typical values: 1.10 to 1.20 (default: 1.15).
-K_IND = 1.15
-
-
-# -----------------------------------------------------------------------------
-# 7. OPERATING CONDITIONS (ADVANCE RATIO & AXIAL FLOW SWEEP)
-# -----------------------------------------------------------------------------
-# Advance ratio sweep range: mu = V_forward / (Omega * R) [-]
-MU_MIN = 0.0              # Minimum advance ratio (0.0 = hover)
-MU_MAX = 0.40             # Maximum advance ratio (typically 0.35 to 0.45 for conventional helicopters)
-MU_STEP = 0.05            # Advance ratio step size
-
-# AXIAL_FLOW: Parameter used to specify axial flow conditions through the rotor disk [-]
-#   Choose one of:
-#     "alpha" -> Rotor disk angle of attack in degrees [deg].
-#                alpha > 0: Wind coming from BELOW the rotor disk (wind enters the underside/bottom
-#                           of the disk, increasing blade section angle of attack and increasing CT;
-#                           mu_z = -mu * tan(alpha) < 0).
-#                alpha = 0: Rotor disk aligned with oncoming horizontal flow.
-#                alpha < 0: Wind coming from ABOVE the rotor disk (wind enters the top of the disk,
-#                           decreasing blade section angle of attack and decreasing CT;
-#                           mu_z = -mu * tan(alpha) > 0).
-#     "mu_z"  -> Non-dimensional axial inflow velocity [-] (mu_z = V_z / Vtip).
-#                mu_z > 0: wind coming from ABOVE the disk (flowing downward along +z, e.g. climb).
-#                mu_z < 0: wind coming from BELOW the disk (flowing upward along -z, e.g. descent).
-#     "w"     -> Dimensional vertical speed in meters per second [m/s].
-#                w > 0: climb (wind from above, w / Vtip > 0).
-#                w < 0: descent (wind from below, w / Vtip < 0).
+# Axial flow mode: "alpha" (disk angle of attack [deg]) | "mu_z" (axial velocity [-]) | "w" (vertical climb speed [m/s])
+# Convention: alpha > 0 is wind from below (tilted nose-up, increases CT); mu_z > 0 is wind from above (climb)
 AXIAL_FLOW = "alpha"
+AXIAL_VALUES = [0.0, -4.0, 4.0]  # Values corresponding to AXIAL_FLOW mode
 
-# AXIAL_VALUES: List of axial flow values to evaluate across the mu sweep
-#   - When AXIAL_FLOW = "alpha": list of angles in degrees, e.g. [0.0, -4.0, 4.0].
-#   - When AXIAL_FLOW = "mu_z": list of non-dimensional velocities, e.g. [0.0, -0.02, 0.02].
-#   - When AXIAL_FLOW = "w": list of vertical speeds in m/s, e.g. [0.0, -5.0, 5.0].
-AXIAL_VALUES = [0.0, -4.0, 4.0]
-
-# Numerical formulations for torque and profile drag:
-# CQ_MODEL: Induced shaft torque calculation model [-]
-#   "complete"   -> Energy balance accounting for shaft torque vs propulsive work (CQi = K_ind*lambda_i*CT + mu_z*CT - mu*CHi).
-#   "simple_bet" -> Classic closed-form BET integral equation.
+# Torque and drag models: "complete" (energy balance / 2D GL numerical integration) | "simple_bet" (classic analytical equations)
 CQ_MODEL = "complete"
-
-# PROFILE_MODEL: Profile drag force (CH0) and profile torque (CQ0) calculation model [-]
-#   "complete"   -> 2D Gauss-Legendre numerical integration over radius and azimuth, accounting for
-#                   reverse flow region, radial velocity component u_R, and root cutout.
-#   "simple_bet" -> Classic closed-form small-angle BET equations (Cd0/2 * (I3 + mu^2/2 * I1)).
 PROFILE_MODEL = "complete"
 
-# OUTPUT_DIR: Output directory where CSV datasets and PNG plots are written
-OUTPUT_DIR = Path("outputs")
+OUTPUT_DIR = Path("outputs") # Directory for CSV and plot outputs
 # =============================================================================
 
 
