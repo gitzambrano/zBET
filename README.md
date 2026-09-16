@@ -23,11 +23,12 @@ For the complete theoretical derivations, coordinate frame diagrams, and analyti
   - The drive shaft torque ($Q$) supplied by the engine acts in the **$-z$ direction** (CCW drive).
   - Rotor shaft torque coefficient $C_Q > 0$ is defined as the positive magnitude of torque required to power the rotor ($P = Q\Omega > 0$).
   - The reaction torque exerted by the rotor on the fuselage is **CLOCKWISE ($+z$ direction)** viewed from above, counteracted by the tail rotor.
-- **Axial Inflow & Wind Direction ($\mu_z$)**:
+- **Axial Inflow & Wind Direction ($\mu_z$ and $\alpha$)**:
   - Total axial inflow along the downward $+z$ axis is $\lambda = \mu_z + \lambda_i$, where induced downwash $\lambda_i \ge 0$ is always directed downward ($+z$).
   - **$\mu_z > 0$ (or vertical velocity $w > 0$)**: Relative wind flows **DOWNWARD** through the disk (oncoming wind coming from **ABOVE** the rotor, e.g. vertical climb).
   - **$\mu_z < 0$ (or vertical velocity $w < 0$)**: Relative wind flows **UPWARD** through the disk (oncoming wind coming from **BELOW** the rotor, e.g. vertical descent).
-  - **Forward Flight with Forward Tilt ($\alpha > 0$)**: Relative wind comes from **BELOW** the disk ($\mu_z = -\mu \tan\alpha < 0$).
+  - **$\alpha > 0$ (Wind from BELOW)**: Rotor disk tilted nose-up relative to oncoming airflow. The relative wind enters the **UNDERSIDE / BOTTOM** of the disk ($\mu_z = -\mu \tan\alpha < 0$), opposing downwash and **increasing blade section angle of attack and rotor thrust $C_T$**.
+  - **$\alpha < 0$ (Wind from ABOVE)**: Rotor disk tilted nose-down relative to oncoming airflow. The relative wind enters the **TOP** of the disk ($\mu_z = -\mu \tan\alpha > 0$), adding to downwash and decreasing rotor thrust $C_T$.
 
 ---
 

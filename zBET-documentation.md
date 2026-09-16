@@ -63,7 +63,7 @@ $$
 
 * **Fuselage Reaction Torque**: By Newton's third law, the reaction torque exerted by the rotor on the airframe acts in the **CLOCKWISE (CW, $+z$ direction)** viewed from above. The anti-torque tail rotor must therefore blow towards the starboard (right) to counteract this yawing reaction.
 
-### 2.4 Axial Inflow and Wind Direction ($\mu_z$)
+### 2.4 Axial Inflow and Wind Direction ($\mu_z$ and $\alpha$)
 The total non-dimensional axial flow velocity through the rotor disk is:
 
 $$
@@ -72,14 +72,26 @@ $$
 
 Because the $z$-axis points **downward**, positive axial velocities represent flow moving **downward** through the disk:
 * **Mean Induced Downwash ($\lambda_i \ge 0$)**: The rotor pushes air downward to produce upward thrust, so $\lambda_i$ is always directed along $+z$ (downward).
-* **Oncoming External Axial Flow ($\mu_z$)**:
+* **Oncoming External Axial Velocity ($\mu_z$)**:
   * **$\mu_z > 0$ (or vertical climb speed $w > 0$)**: The oncoming relative wind flows **DOWNWARD** through the disk. This corresponds to wind coming from **ABOVE the rotor disk** (e.g., a helicopter in a vertical climb, where the rotor moves upward into still air, causing relative wind to strike the disk from above).
-  * **$\mu_z < 0$ (or vertical descent speed $w < 0$)**: The oncoming relative wind flows **UPWARD** through the disk. This corresponds to wind coming from **BELOW the rotor disk** (e.g., a helicopter in a vertical descent, autorotation, or forward flight).
-  * **Forward Flight with Forward Disk Tilt ($\alpha > 0$)**: In propulsive forward flight, the rotor disk is tilted forward-down by angle $\alpha > 0$ to generate a forward propulsive force component. The oncoming horizontal wind hits the underside of the disk from below:
+  * **$\mu_z < 0$ (or vertical descent speed $w < 0$)**: The oncoming relative wind flows **UPWARD** through the disk. This corresponds to wind coming from **BELOW the rotor disk** (e.g., a helicopter in a vertical descent, autorotation, or rotor at positive angle of attack).
+* **Rotor Angle of Attack ($\alpha$)**:
+  * **$\alpha > 0$ (Wind from BELOW)**: Defined as the rotor disk tilted with its leading edge up relative to the oncoming flow (positive aerodynamic angle of attack). The relative wind strikes the **UNDERSIDE / BOTTOM** of the rotor disk (coming from **BELOW**).
+    Its axial velocity component in the downward $+z$ coordinate axis is:
 
 $$
 \mu_z = -\mu \tan\alpha < 0
 $$
+
+    Because $\mu_z < 0$, the upward relative airflow opposes the downward induced velocity $\lambda_i$, reducing net downwash $\lambda$ and **increasing blade section angle of attack and rotor thrust $C_T$**.
+  * **$\alpha = 0$**: Rotor disk parallel to the oncoming free stream ($\mu_z = 0$).
+  * **$\alpha < 0$ (Wind from ABOVE)**: Rotor disk tilted nose-down relative to oncoming flow. The relative wind strikes the **TOP** of the rotor disk (coming from **ABOVE**):
+
+$$
+\mu_z = -\mu \tan\alpha > 0
+$$
+
+    Because $\mu_z > 0$, the downward relative airflow adds to downwash $\lambda_i$, increasing net downwash $\lambda$ and **decreasing blade section angle of attack and rotor thrust $C_T$**.
 
 ### 2.5 Rotor Forces and Moments
 * **Thrust ($T, C_T$)**: Directed **UPWARD** (along $-z$). In standard flight, $C_T > 0$ balances aircraft weight.

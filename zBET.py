@@ -229,9 +229,13 @@ MU_STEP = 0.05            # Advance ratio step size
 # AXIAL_FLOW: Parameter used to specify axial flow conditions through the rotor disk [-]
 #   Choose one of:
 #     "alpha" -> Rotor disk angle of attack in degrees [deg].
-#                alpha > 0: propulsive forward disk tilt (wind strikes underside of disk, mu_z = -mu*tan(alpha) < 0).
-#                alpha = 0: level rotor disk.
-#                alpha < 0: flared rotor disk (wind strikes top of disk).
+#                alpha > 0: Wind coming from BELOW the rotor disk (wind enters the underside/bottom
+#                           of the disk, increasing blade section angle of attack and increasing CT;
+#                           mu_z = -mu * tan(alpha) < 0).
+#                alpha = 0: Rotor disk aligned with oncoming horizontal flow.
+#                alpha < 0: Wind coming from ABOVE the rotor disk (wind enters the top of the disk,
+#                           decreasing blade section angle of attack and decreasing CT;
+#                           mu_z = -mu * tan(alpha) > 0).
 #     "mu_z"  -> Non-dimensional axial inflow velocity [-] (mu_z = V_z / Vtip).
 #                mu_z > 0: wind coming from ABOVE the disk (flowing downward along +z, e.g. climb).
 #                mu_z < 0: wind coming from BELOW the disk (flowing upward along -z, e.g. descent).
