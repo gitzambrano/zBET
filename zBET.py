@@ -1,10 +1,37 @@
 #!/usr/bin/env python3
-"""zBET: Semi-empirical rotor advance ratio (mu) sweep with multiple inflow models
-(Uniform, Simple Coleman, NDARC Coleman-Feingold with lateral Ky, and Drees with Ky),
-linear blade twist, blade taper, three solidity definitions, tip loss factor,
-Prandtl-Glauert compressibility correction, hover trim modes (collective or RPM),
-dimensional thrust/power outputs, and global rotor performance metrics (effective L/D
-and Figure of Merit).
+"""zBET: Fast Blade Element Theory (BET) solver for rapid rotor aerodynamic evaluation,
+conceptual trade studies, and advance ratio (mu) sweeps.
+
+Key Model Characteristics:
+  - Methodology: Fast Blade Element Theory (BET) with closed-form radial-moment integrals,
+    coupled with global actuator-disk momentum theory for mean induced inflow (lambda_i),
+    and classical spatial inflow gradient models (Glauert, Coleman, Drees).
+    (Note: This is a fast analytical/semi-empirical BET solver designed for rapid sizing,
+    NOT an iterative discretized multi-annulus BEMT strip-theory solver).
+
+Coordinate System & Sign Conventions:
+  - Hub Coordinate Frame (standard helicopter body/shaft convention):
+      * x-axis: Points FORWARD (along nominal vehicle flight direction / aircraft nose).
+      * y-axis: Points to the RIGHT (starboard side).
+      * z-axis: Points DOWNWARD (through the bottom of the rotor disk).
+  - Rotor Rotation:
+      * Viewed from ABOVE (looking down along +z): The rotor blades rotate COUNTER-CLOCKWISE (CCW).
+      * Advancing blade: Starboard / right side (azimuth psi = 90 deg), where tangential velocity is u_T = x + mu*sin(psi).
+      * Retreating blade: Port / left side (azimuth psi = 270 deg), where tangential velocity is u_T = x - mu.
+  - Shaft Torque & Drive Direction:
+      * By the right-hand rule about the downward +z axis, CCW rotor rotation corresponds to a vector along -z.
+      * Aerodynamic blade drag resists rotation in the CLOCKWISE direction (+z, viewed from above).
+      * Drive shaft torque (Q) overcomes blade drag, delivering driving power in the -z direction.
+      * By convention, rotor shaft torque CQ is positive (CQ > 0) when power is delivered to the rotor (P = Q*Omega > 0).
+      * The reaction torque exerted by the rotor on the fuselage acts in the CLOCKWISE (+z) direction.
+  - Axial Flow & mu_z (Wind Direction):
+      * Inflow velocity lambda = mu_z + lambda_i points DOWNWARD (+z direction).
+      * Mean downwash lambda_i >= 0 is always directed downward (+z).
+      * mu_z > 0: Relative oncoming wind is flowing DOWNWARD (wind coming from ABOVE the rotor disk,
+        e.g., helicopter in vertical climb or top-down relative airflow).
+      * mu_z < 0: Relative oncoming wind is flowing UPWARD (wind coming from BELOW the rotor disk,
+        e.g., forward flight with forward rotor tilt alpha > 0, where mu_z = -mu*tan(alpha) < 0,
+        or helicopter in vertical descent / autorotation).
 
 Theoretical and empirical references:
   1. Glauert, H. (1926) - Classic uniform inflow (Kx = 0, Ky = 0).
@@ -146,7 +173,10 @@ MU_MAX = 0.40
 MU_STEP = 0.05
 
 # Axial flow condition: "alpha" [deg], "mu_z" [-], or "w" [m/s].
-# alpha > 0: propulsive (wind from below). mu_z and w > 0: wind from above (climb/descent convention).
+# Sign convention for axial flow through the downward +z axis:
+#   - mu_z > 0 (or w > 0): Wind coming from ABOVE the rotor disk (flowing downward along +z, e.g. climb).
+#   - mu_z < 0 (or w < 0): Wind coming from BELOW the rotor disk (flowing upward along -z, e.g. descent).
+#   - alpha > 0: Propulsive forward disk tilt where relative wind comes from BELOW (mu_z = -mu*tan(alpha) < 0).
 AXIAL_FLOW = "alpha"
 AXIAL_VALUES = [0.0, -4.0, 4.0]
 
