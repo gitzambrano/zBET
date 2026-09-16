@@ -1,0 +1,21 @@
+# Python bytecode and test cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Simulation outputs and generated data
+outputs/
+*.csv
+*.png
+
+# Temporary and local workspace files
+tmp/
+.claude/
+.vscode/
+.idea/
+
+# Local reference textbooks and legacy files
+docs/
+zbet_old.py
+zbet-old.py
