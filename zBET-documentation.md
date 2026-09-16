@@ -332,7 +332,7 @@ $$
 **Longitudinal H-Force $C_H = C_{Hi} + C_{H0}$:**
 
 $$
-C_{Hi} = \frac{a}{4}\left[\lambda\mu T_0 + \lambda_{1s} T_2\right]
+C_{Hi} = \frac{a}{4}\left[\lambda\mu T_0 + \lambda_{1s} \left(T_2 - 2\lambda I_1\right)\right]
 $$
 
 $$
@@ -408,7 +408,7 @@ $$
 | **$C_{Qi}^{\mathrm{comp}}$** | $K_{\mathrm{ind}}\lambda_i C_T + \mu_z C_T - \mu C_{Hi}$ | $K_{\mathrm{ind}}\lambda_i C_T + \mu_z C_T - \mu C_{Hi}$ |
 | **$C_{Qi}^{\mathrm{simp}}$** | $\frac{a}{2} [ (\lambda + \frac{\mu\lambda_{1s}}{2}) T_2 - \lambda^2 I_1 - \frac{\lambda_{1c}^2+\lambda_{1s}^2}{2} I_3 ]$ | $\frac{\sigma a}{2} [ \theta_0\lambda J_2 - \lambda^2 J_1 - \frac{\lambda_{1c}^2}{2} J_3 ]$ |
 | **$C_{Q0}^{\mathrm{simp}}$** | $\frac{C_{d0}}{2} (I_3 + \frac{\mu^2 I_1}{2})$ | $\frac{\sigma C_{d0}}{2} (J_3 + \frac{\mu^2 J_1}{2})$ |
-| **$C_{Hi}$** | $\frac{a}{4} [\lambda\mu T_0 + \lambda_{1s} T_2]$ | $\frac{\sigma a\theta_0\lambda\mu J_0}{4}$ |
+| **$C_{Hi}$** | $\frac{a}{4} [\lambda\mu T_0 + \lambda_{1s} (T_2 - 2\lambda I_1)]$ | $\frac{\sigma a\theta_0\lambda\mu J_0}{4}$ |
 | **$C_{H0}^{\mathrm{simp}}$** | $\frac{C_{d0}\mu I_1}{2}$ | $\frac{\sigma C_{d0}\mu J_1}{2}$ |
 | **$C_Y$** | $-\frac{a\lambda_{1c}}{4} [T_2 - 2\lambda I_1]$ | $-\frac{\sigma a\lambda_{1c}}{4} (\theta_0 J_2 - 2\lambda J_1)$ |
 | **$C_{Mx}$** | $-\frac{a\mu}{2} [T_2 - \frac{\lambda I_1}{2}] + \frac{a\lambda_{1s}}{4} I_3$ | $-\frac{\sigma a\mu}{2} (\theta_0 J_2 - \frac{\lambda J_1}{2})$ |

@@ -834,7 +834,7 @@ def coefficients(
     ch0, cq0 = profile_coefficients(mu, mu_z, geometry, profile_model)
 
     # Induced longitudinal H-force CHi:
-    chi = 0.25 * a * (lam * mu * t_mom[0] + lambda_1s * t_mom[2])
+    chi = 0.25 * a * (lam * mu * t_mom[0] + lambda_1s * (t_mom[2] - 2.0 * lam * i_mom[1]))
 
     # Simplified BET induced torque:
     cqi_bet = 0.5 * a * (
