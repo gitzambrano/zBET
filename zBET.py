@@ -854,7 +854,7 @@ def coefficients(
     # Induced longitudinal H-force CHi:
     chi = 0.25 * a * (lam * mu * t_mom[0] + lambda_1s * (t_mom[2] - 2.0 * lam * i_mom[1]))
 
-    # Simplified BET induced torque:
+    # Analytical BET induced torque:
     cqi_bet = 0.5 * a * (
         (lam + 0.5 * mu * lambda_1s) * t_mom[2]
         - lam * lam * i_mom[1]
