@@ -25,24 +25,24 @@ Both references distinguish the **general blade-element force integration** from
 
 zBET has two independent selectors:
 
-- \`PROFILE_MODEL\`
-- \`CQ_MODEL\`
+- `PROFILE_MODEL`
+- `CQ_MODEL`
 
-The legacy value \`"complete"\` does **not** mean that every rotor load is obtained from a full numerical section-force integration.
+The legacy value `"complete"` does **not** mean that every rotor load is obtained from a full numerical section-force integration.
 
-| Output or contribution | \`"simple_bet"\` | \`"complete"\` |
+| Output or contribution | `"simple_bet"` | `"complete"` |
 | --- | --- | --- |
-| \`CT\` | analytical weighted moments | same analytical weighted moments |
-| \`CHi\` | analytical weighted moments | same analytical weighted moments |
-| \`CY\` | analytical weighted moments | same analytical weighted moments |
-| \`CMx\`, \`CMy\` | analytical weighted moments | same analytical weighted moments |
-| \`CH0\`, \`CQ0\` through \`PROFILE_MODEL\` | closed-form profile approximation | radial × azimuthal Gauss-Legendre quadrature |
-| \`CQi\` through \`CQ_MODEL\` | direct analytical BET expression | energy-balance closure with \`K_IND\` |
-| \`CQ\` | \`CQi + CQ0\` | \`CQi + CQ0\` |
+| `CT` | analytical weighted moments | same analytical weighted moments |
+| `CHi` | analytical weighted moments | same analytical weighted moments |
+| `CY` | analytical weighted moments | same analytical weighted moments |
+| `CMx`, `CMy` | analytical weighted moments | same analytical weighted moments |
+| `CH0`, `CQ0` through `PROFILE_MODEL` | closed-form profile approximation | radial × azimuthal Gauss-Legendre quadrature |
+| `CQi` through `CQ_MODEL` | direct analytical BET expression | energy-balance closure with `K_IND` |
+| `CQ` | `CQi + CQ0` | `CQi + CQ0` |
 
-> **Terminology:** \`"complete"\` is retained for backward compatibility, but it should be read as **hybrid higher-fidelity mode**, not as “complete force balance.”
+> **Terminology:** `"complete"` is retained for backward compatibility, but it should be read as **hybrid higher-fidelity mode**, not as “complete force balance.”
 
-The simple and hybrid modes are therefore **not expected to give identical results**. They approach each other only when their assumptions and empirical corrections approach the same limiting model. In particular, the default \`K_IND = 1.15\` intentionally increases induced power relative to ideal BET.
+The simple and hybrid modes are therefore **not expected to give identical results**. They approach each other only when their assumptions and empirical corrections approach the same limiting model. In particular, the default `K_IND = 1.15` intentionally increases induced power relative to ideal BET.
 
 ---
 
@@ -109,7 +109,7 @@ The code convention is:
 - $\mu_z>0$: imposed relative flow is downward through the disk;
 - $\mu_z<0$: imposed relative flow is upward through the disk.
 
-For \`AXIAL_FLOW = "alpha"\`,
+For `AXIAL_FLOW = "alpha"`,
 
 $$
 \mu_z=-\mu\tan\alpha.
@@ -380,7 +380,7 @@ $$
 
 ### 5.3 No trim
 
-With \`HOVER_TRIM_MODE = "none"\`, the specified RPM and pitch are used directly.
+With `HOVER_TRIM_MODE = "none"`, the specified RPM and pitch are used directly.
 
 ---
 
@@ -420,7 +420,7 @@ $$
 
 A **fully integrated force-balance solver** would evaluate a common local aerodynamic state and consistently integrate the resulting forces for thrust, in-plane forces, torque, and hub moments over radius and azimuth.
 
-That is **not** what the current zBET \`"complete"\` mode does.
+That is **not** what the current zBET `"complete"` mode does.
 
 ### 6.2 Analytical weighted moments used by zBET
 
@@ -519,7 +519,7 @@ C_{My}
 \frac{a\lambda_{1c}}{4}I_3.
 $$
 
-These expressions are used regardless of whether \`CQ_MODEL\` or \`PROFILE_MODEL\` is set to \`"simple_bet"\` or \`"complete"\`.
+These expressions are used regardless of whether `CQ_MODEL` or `PROFILE_MODEL` is set to `"simple_bet"` or `"complete"`.
 
 ### 6.3 Profile-drag models
 
@@ -533,7 +533,7 @@ $$
 
 #### Analytical profile model
 
-With \`PROFILE_MODEL = "simple_bet"\`,
+With `PROFILE_MODEL = "simple_bet"`,
 
 $$
 C_{H0}
@@ -588,7 +588,7 @@ Thus the zBET shaft-torque expression is consistent with the classical simple pr
 
 #### Numerical profile model
 
-With \`PROFILE_MODEL = "complete"\`, zBET uses Gauss-Legendre quadrature in radius and azimuth. The implemented kinematics are
+With `PROFILE_MODEL = "complete"`, zBET uses Gauss-Legendre quadrature in radius and azimuth. The implemented kinematics are
 
 $$
 u_T=x+\mu\sin\psi,
@@ -640,7 +640,7 @@ This numerical path captures radial velocity and reverse-flow sign changes in th
 
 #### Direct analytical BET torque
 
-With \`CQ_MODEL = "simple_bet"\`,
+With `CQ_MODEL = "simple_bet"`,
 
 $$
 C_{Qi}
@@ -663,7 +663,7 @@ This is the direct analytical small-angle BET torque expression used by the code
 
 #### Energy-balance torque
 
-With \`CQ_MODEL = "complete"\`,
+With `CQ_MODEL = "complete"`,
 
 $$
 C_{Qi}
@@ -848,7 +848,7 @@ The current implementation is intentionally compact. Important limitations are:
 
 - small-angle analytical treatment for the principal lift-induced rotor loads;
 - linear section lift curve;
-- constant \`CD0\` rather than an airfoil polar;
+- constant `CD0` rather than an airfoil polar;
 - no nonlinear stall or dynamic stall;
 - no cyclic-pitch trim;
 - no blade flapping solution in the aerodynamic load calculation;
@@ -857,7 +857,7 @@ The current implementation is intentionally compact. Important limitations are:
 - no full reverse-flow airfoil model;
 - first-harmonic prescribed inflow gradients rather than a free wake;
 - profile quadrature is numerical, but the lift-induced loads remain analytical;
-- \`CQ_MODEL = "complete"\` is an energy-balance closure, not direct torque quadrature.
+- `CQ_MODEL = "complete"` is an energy-balance closure, not direct torque quadrature.
 
 These limitations are compatible with the intended use of zBET as a rapid conceptual-analysis tool. They should be considered before applying the code to high advance ratio, severe descent, stalled conditions, or detailed loads work.
 
@@ -867,41 +867,41 @@ These limitations are compatible with the intended use of zBET as a rapid concep
 
 ### Geometry and atmosphere
 
-- \`RHO\`: air density
-- \`SPEED_OF_SOUND\`: speed of sound
-- \`RPM\`: rotor speed
-- \`R\`: rotor radius
-- \`R0_BAR\`: root cutout
-- \`A_LIFT\`: linear lift-curve slope
-- \`CD0\`: constant profile drag coefficient
+- `RHO`: air density
+- `SPEED_OF_SOUND`: speed of sound
+- `RPM`: rotor speed
+- `R`: rotor radius
+- `R0_BAR`: root cutout
+- `A_LIFT`: linear lift-curve slope
+- `CD0`: constant profile drag coefficient
 
 ### Solidity and planform
 
-- \`SOLIDITY_MODE = "sigma_ref"\`
-- \`SOLIDITY_MODE = "sigma_geom"\`
-- \`SOLIDITY_MODE = "chords"\`
+- `SOLIDITY_MODE = "sigma_ref"`
+- `SOLIDITY_MODE = "sigma_geom"`
+- `SOLIDITY_MODE = "chords"`
 
 ### Pitch and trim
 
-- \`PITCH_MODE = "constant"\`
-- \`PITCH_MODE = "linear_twist"\`
-- \`HOVER_TRIM_MODE = "collective"\`
-- \`HOVER_TRIM_MODE = "rpm"\`
-- \`HOVER_TRIM_MODE = "none"\`
+- `PITCH_MODE = "constant"`
+- `PITCH_MODE = "linear_twist"`
+- `HOVER_TRIM_MODE = "collective"`
+- `HOVER_TRIM_MODE = "rpm"`
+- `HOVER_TRIM_MODE = "none"`
 
 ### Inflow
 
-- \`uniform\`
-- \`coleman_simple\`
-- \`coleman_feingold\`
-- \`drees\`
+- `uniform`
+- `coleman_simple`
+- `coleman_feingold`
+- `drees`
 
 ### Torque and profile paths
 
-- \`CQ_MODEL = "simple_bet"\`: direct analytical induced torque
-- \`CQ_MODEL = "complete"\`: energy-balance induced torque
-- \`PROFILE_MODEL = "simple_bet"\`: analytical profile force and torque
-- \`PROFILE_MODEL = "complete"\`: numerical profile-drag quadrature
+- `CQ_MODEL = "simple_bet"`: direct analytical induced torque
+- `CQ_MODEL = "complete"`: energy-balance induced torque
+- `PROFILE_MODEL = "simple_bet"`: analytical profile force and torque
+- `PROFILE_MODEL = "complete"`: numerical profile-drag quadrature
 
 ---
 
