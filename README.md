@@ -38,6 +38,7 @@ The principal lift-induced loads remain analytical in both selector families:
 The selectors are deliberately named after the physics they implement. zBET does not expose a generic “simple/complete” switch.
 
 A fully integrated force-balance solver would evaluate the same local aerodynamic state consistently for all force and moment channels over radius and azimuth. zBET is intentionally lighter than that: its design target is fast, transparent conceptual analysis.
+
 ---
 
 ## BET vs. BEMT
