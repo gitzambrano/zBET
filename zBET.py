@@ -85,7 +85,13 @@ MU_STEP = 0.05              # Advance ratio step size [-]
 AXIAL_FLOW = "alpha"
 AXIAL_VALUES = [0.0, -4.0, 4.0]  # Values corresponding to AXIAL_FLOW mode
 
-# Torque and drag models: "complete" (energy balance / 2D GL numerical integration) | "simple_bet" (classic analytical equations)
+# Torque and profile-drag model selectors.
+# Legacy name "complete" means a hybrid higher-fidelity path, NOT a fully integrated
+# force-balance model:
+#   CQ_MODEL="complete"      -> induced shaft torque from energy balance with K_IND
+#   PROFILE_MODEL="complete" -> numerical radial/azimuthal profile-drag quadrature
+#   "simple_bet"             -> closed-form analytical BET expressions
+# CT, CHi, CY, CMx, and CMy always use the analytical weighted-moment formulation.
 CQ_MODEL = "complete"
 PROFILE_MODEL = "complete"
 
@@ -333,7 +339,7 @@ def resolve_solidity(
     radius=R,
     root_cutout=R0_BAR,
 ):
-    """Constructs the BladeSolidity object, analytically calculating the three solidezes:
+    """Constructs the BladeSolidity object, analytically calculating three solidity metrics:
       1. sigma_ref: Reference solidity extrapolated to hub (stretched area from 0 to 1 / (pi*R^2)).
       2. sigma_geom: True geometric physical solidity (actual area from x0 to 1 / (pi*R^2)).
       3. sigma_thrust: Thrust-weighted solidity (3 * integral_{x0}^1 x^2 sigma(x) dx).
@@ -754,10 +760,16 @@ def _gauss_nodes(order):
 
 
 def profile_coefficients(mu, mu_z, geometry, profile_model=PROFILE_MODEL):
-    """Calculates profile drag force CH0 and profile torque CQ0.
+    """Calculates profile-drag contributions CH0 and CQ0.
 
-    Under 'complete', numerically integrates local total velocity (accounting for
-    radial velocity u_R, reverse flow, mu_z, and local solidity sigma(r)).
+    "simple_bet" uses the closed-form small-angle profile expressions.
+
+    The legacy "complete" option performs radial/azimuthal Gauss-Legendre
+    quadrature of the profile-drag projections using u_T, u_R, imposed axial
+    velocity mu_z, and local solidity sigma(r). It is intentionally only a
+    numerical profile-drag correction: induced normal velocity is not included
+    in the drag-speed magnitude, and lift-induced loads are evaluated elsewhere
+    by the analytical weighted-moment model.
     """
     b_val = geometry.b_factor()
     j = radial_integrals(geometry, b=b_val)
@@ -808,7 +820,7 @@ def coefficients(
     fx=FX_COLEMAN,
     fy=FY_COLEMAN,
 ):
-    """Calculates non-dimensional aerodynamic coefficients and rotor performance metrics."""
+    """Calculates rotor coefficients using zBET\'s hybrid BET formulation.\n\n    CT, CHi, CY, CMx, and CMy are always obtained from analytical weighted\n    radial moments. PROFILE_MODEL selects analytical versus numerical profile\n    drag for CH0/CQ0. CQ_MODEL selects direct analytical BET versus the\n    energy-balance closure for CQi. See zBET-documentation.md for the exact\n    implementation map and assumptions.\n    """
     if isinstance(pitch_input, (int, float)):
         pitch = BladePitch(
             "constant",
