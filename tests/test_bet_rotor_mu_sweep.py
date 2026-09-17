@@ -12,14 +12,14 @@ import pandas as pd
 import pytest
 
 from zBET import (
-    CQ_MODEL,
+    INDUCED_TORQUE_MODEL,
     FX_COLEMAN,
     FY_COLEMAN,
     INFLOW_MODELS,
     K_IND,
     MODELS,
     OUTPUTS,
-    PROFILE_MODEL,
+    PROFILE_DRAG_MODEL,
     BladePitch,
     BladeSolidity,
     Geometry,
@@ -29,6 +29,7 @@ from zBET import (
     collective_pitch,
     inflow_gradients,
     plot_results,
+    profile_drag_coefficients,
     radial_integrals,
     radial_moments,
     resolve_pitch,
@@ -214,20 +215,72 @@ def test_linear_twist_with_hover_target():
     assert res["CT"] == pytest.approx(target_ct, rel=1e-7)
 
 
-def test_complete_models_are_the_defaults():
-    """Verifies default numerical model configurations."""
-    assert PROFILE_MODEL == "complete"
-    assert CQ_MODEL == "complete"
+def test_explicit_aerodynamic_models_are_the_defaults():
+    """Verifies the default aerodynamic model selectors."""
+    assert PROFILE_DRAG_MODEL == "numerical_profile"
+    assert INDUCED_TORQUE_MODEL == "energy_balance"
     assert K_IND == pytest.approx(1.15)
 
 
-def test_complete_cqi_is_shaft_torque_not_power():
-    """Verifies that complete CQi represents rotor shaft torque discounting translational work mu*CHi."""
+def test_energy_balance_cqi_is_shaft_torque_not_power():
+    """Verifies that energy-balance CQi excludes translational work mu*CHi."""
     mu, mu_z = 0.3, 0.03
     result = coefficients(mu, mu_z, 0.12, GEOM, "uniform")
     power_form = K_IND * result["lambda_i"] * result["CT"] + mu_z * result["CT"]
     assert result["CQi"] == pytest.approx(power_form - mu * result["CHi"])
     assert result["CQi"] < power_form
+
+
+def test_aerodynamic_model_selectors_are_strict():
+    """Rejects the removed legacy model names instead of silently aliasing them."""
+    with pytest.raises(ValueError, match="profile_drag_model"):
+        profile_drag_coefficients(0.2, 0.0, GEOM, profile_drag_model="complete")
+    with pytest.raises(ValueError, match="profile_drag_model"):
+        profile_drag_coefficients(0.2, 0.0, GEOM, profile_drag_model="simple_bet")
+    with pytest.raises(ValueError, match="induced_torque_model"):
+        coefficients(
+            0.2,
+            0.0,
+            0.12,
+            GEOM,
+            "uniform",
+            induced_torque_model="complete",
+        )
+    with pytest.raises(ValueError, match="induced_torque_model"):
+        coefficients(
+            0.2,
+            0.0,
+            0.12,
+            GEOM,
+            "uniform",
+            induced_torque_model="simple_bet",
+        )
+
+
+def test_analytical_and_higher_fidelity_paths_are_selectable():
+    """Checks both explicit selector families and preserves coefficient decompositions."""
+    analytical = coefficients(
+        0.25,
+        0.01,
+        0.12,
+        GEOM,
+        "uniform",
+        profile_drag_model="analytical_bet",
+        induced_torque_model="analytical_bet",
+    )
+    higher_fidelity = coefficients(
+        0.25,
+        0.01,
+        0.12,
+        GEOM,
+        "uniform",
+        profile_drag_model="numerical_profile",
+        induced_torque_model="energy_balance",
+    )
+    for result in (analytical, higher_fidelity):
+        assert result["CQ"] == pytest.approx(result["CQi"] + result["CQ0"])
+        assert result["CH"] == pytest.approx(result["CHi"] + result["CH0"])
+    assert analytical["CQ"] != pytest.approx(higher_fidelity["CQ"])
 
 
 def test_csv_is_named_zbet_and_separate_model_csvs(tmp_path):
@@ -246,6 +299,10 @@ def test_csv_is_named_zbet_and_separate_model_csvs(tmp_path):
         assert "CPair" in m_df.columns
         assert "sigma_ref" in m_df.columns
         assert "sigma_geom" in m_df.columns
+        assert "profile_drag_model" in m_df.columns
+        assert "induced_torque_model" in m_df.columns
+        assert (m_df["profile_drag_model"] == PROFILE_DRAG_MODEL).all()
+        assert (m_df["induced_torque_model"] == INDUCED_TORQUE_MODEL).all()
 
     assert (tmp_path / "zBET_coleman.csv").is_file()
 

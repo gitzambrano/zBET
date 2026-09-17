@@ -85,15 +85,16 @@ MU_STEP = 0.05              # Advance ratio step size [-]
 AXIAL_FLOW = "alpha"
 AXIAL_VALUES = [0.0, -4.0, 4.0]  # Values corresponding to AXIAL_FLOW mode
 
-# Torque and profile-drag model selectors.
-# Legacy name "complete" means a hybrid higher-fidelity path, NOT a fully integrated
-# force-balance model:
-#   CQ_MODEL="complete"      -> induced shaft torque from energy balance with K_IND
-#   PROFILE_MODEL="complete" -> numerical radial/azimuthal profile-drag quadrature
-#   "simple_bet"             -> closed-form analytical BET expressions
+# Aerodynamic model selectors.
+# Induced shaft torque:
+#   "analytical_bet" -> direct closed-form BET torque
+#   "energy_balance" -> energy-balance closure with K_IND
+# Profile drag:
+#   "analytical_bet"    -> closed-form BET profile force and torque
+#   "numerical_profile" -> radial/azimuthal Gauss-Legendre profile-drag quadrature
 # CT, CHi, CY, CMx, and CMy always use the analytical weighted-moment formulation.
-CQ_MODEL = "complete"
-PROFILE_MODEL = "complete"
+INDUCED_TORQUE_MODEL = "energy_balance"
+PROFILE_DRAG_MODEL = "numerical_profile"
 
 OUTPUT_DIR = Path("outputs") # Directory for CSV and plot outputs
 # =============================================================================
@@ -759,17 +760,16 @@ def _gauss_nodes(order):
     return np.polynomial.legendre.leggauss(order)
 
 
-def profile_coefficients(mu, mu_z, geometry, profile_model=PROFILE_MODEL):
+def profile_drag_coefficients(mu, mu_z, geometry, profile_drag_model=PROFILE_DRAG_MODEL):
     """Calculates profile-drag contributions CH0 and CQ0.
 
-    "simple_bet" uses the closed-form small-angle profile expressions.
+    "analytical_bet" uses the closed-form small-angle BET profile expressions.
 
-    The legacy "complete" option performs radial/azimuthal Gauss-Legendre
-    quadrature of the profile-drag projections using u_T, u_R, imposed axial
-    velocity mu_z, and local solidity sigma(r). It is intentionally only a
-    numerical profile-drag correction: induced normal velocity is not included
-    in the drag-speed magnitude, and lift-induced loads are evaluated elsewhere
-    by the analytical weighted-moment model.
+    "numerical_profile" performs radial/azimuthal Gauss-Legendre quadrature
+    of the profile-drag projections using u_T, u_R, imposed axial velocity
+    mu_z, and local solidity sigma(r). It remains a profile-only correction:
+    induced normal velocity is not included in the drag-speed magnitude, and
+    lift-induced loads are evaluated by the analytical weighted-moment model.
     """
     b_val = geometry.b_factor()
     j = radial_integrals(geometry, b=b_val)
@@ -777,13 +777,13 @@ def profile_coefficients(mu, mu_z, geometry, profile_model=PROFILE_MODEL):
     i_mom = {m: s0 * j[m] + s1 * j[m + 1] for m in range(5)}
     cd0 = geometry.cd0
 
-    if profile_model == "simple_bet":
+    if profile_drag_model == "analytical_bet":
         ch0 = cd0 * mu * i_mom[1] / 2.0
         cq0 = cd0 / 2.0 * (i_mom[3] + 0.5 * mu * mu * i_mom[1])
         return ch0, cq0
 
-    if profile_model != "complete":
-        raise ValueError("profile_model must be 'complete' or 'simple_bet'")
+    if profile_drag_model != "numerical_profile":
+        raise ValueError("profile_drag_model must be 'analytical_bet' or 'numerical_profile'")
 
     # 2D Gauss-Legendre quadrature (radial and azimuthal)
     xr, wr = _gauss_nodes(48)
@@ -814,13 +814,19 @@ def coefficients(
     pitch_input,
     geometry,
     model,
-    profile_model=PROFILE_MODEL,
-    cq_model=CQ_MODEL,
+    profile_drag_model=PROFILE_DRAG_MODEL,
+    induced_torque_model=INDUCED_TORQUE_MODEL,
     k_ind=K_IND,
     fx=FX_COLEMAN,
     fy=FY_COLEMAN,
 ):
-    """Calculates rotor coefficients using zBET\'s hybrid BET formulation.\n\n    CT, CHi, CY, CMx, and CMy are always obtained from analytical weighted\n    radial moments. PROFILE_MODEL selects analytical versus numerical profile\n    drag for CH0/CQ0. CQ_MODEL selects direct analytical BET versus the\n    energy-balance closure for CQi. See zBET-documentation.md for the exact\n    implementation map and assumptions.\n    """
+    """Calculates rotor coefficients using zBET's hybrid BET formulation.
+
+    CT, CHi, CY, CMx, and CMy use analytical weighted radial moments.
+    PROFILE_DRAG_MODEL selects analytical BET or numerical profile-drag
+    quadrature for CH0/CQ0. INDUCED_TORQUE_MODEL selects direct analytical
+    BET or the energy-balance closure for CQi.
+    """
     if isinstance(pitch_input, (int, float)):
         pitch = BladePitch(
             "constant",
@@ -843,27 +849,27 @@ def coefficients(
     lambda_1s = ky * lambda_i
 
     ct = ct_bet(mu, lam, lambda_1s, (j, i_mom, t_mom), geometry, a=a)
-    ch0, cq0 = profile_coefficients(mu, mu_z, geometry, profile_model)
+    ch0, cq0 = profile_drag_coefficients(mu, mu_z, geometry, profile_drag_model)
 
     # Induced longitudinal H-force CHi:
     chi = 0.25 * a * (lam * mu * t_mom[0] + lambda_1s * (t_mom[2] - 2.0 * lam * i_mom[1]))
 
-    # Simplified BET induced torque:
+    # Analytical BET induced torque:
     cqi_bet = 0.5 * a * (
         (lam + 0.5 * mu * lambda_1s) * t_mom[2]
         - lam * lam * i_mom[1]
         - 0.5 * (lambda_1c * lambda_1c + lambda_1s * lambda_1s) * i_mom[3]
     )
 
-    if cq_model == "complete":
+    if induced_torque_model == "energy_balance":
         if k_ind <= 0.0:
             raise ValueError("K_IND must be positive")
         # Rotor shaft torque energy balance
         cqi = k_ind * lambda_i * ct + mu_z * ct - mu * chi
-    elif cq_model == "simple_bet":
+    elif induced_torque_model == "analytical_bet":
         cqi = cqi_bet
     else:
-        raise ValueError("cq_model must be 'complete' or 'simple_bet'")
+        raise ValueError("induced_torque_model must be 'analytical_bet' or 'energy_balance'")
 
     # Side force CY (lateral projection of normal force):
     cy = -0.25 * a * lambda_1c * (t_mom[2] - 2.0 * lam * i_mom[1])
@@ -920,8 +926,8 @@ def run_sweep(
     axial_values,
     pitch,
     inflow_models=INFLOW_MODELS,
-    profile_model=PROFILE_MODEL,
-    cq_model=CQ_MODEL,
+    profile_drag_model=PROFILE_DRAG_MODEL,
+    induced_torque_model=INDUCED_TORQUE_MODEL,
     k_ind=K_IND,
     fx=FX_COLEMAN,
     fy=FY_COLEMAN,
@@ -958,8 +964,8 @@ def run_sweep(
                     "sigma_ref": geometry.solidity.sigma_ref,
                     "sigma_geom": geometry.solidity.sigma_geom,
                     "sigma_thrust": geometry.solidity.sigma_thrust,
-                    "profile_model": profile_model,
-                    "cq_model": cq_model,
+                    "profile_drag_model": profile_drag_model,
+                    "induced_torque_model": induced_torque_model,
                     "K_ind": k_ind,
                     "RPM": geometry.rpm,
                     "B_tip_loss": geometry.b_factor(),
@@ -972,8 +978,8 @@ def run_sweep(
                     pitch,
                     geometry,
                     model,
-                    profile_model=profile_model,
-                    cq_model=cq_model,
+                    profile_drag_model=profile_drag_model,
+                    induced_torque_model=induced_torque_model,
                     k_ind=k_ind,
                     fx=fx,
                     fy=fy,
@@ -1071,8 +1077,8 @@ def main():
         AXIAL_VALUES,
         pitch,
         inflow_models=INFLOW_MODELS,
-        profile_model=PROFILE_MODEL,
-        cq_model=CQ_MODEL,
+        profile_drag_model=PROFILE_DRAG_MODEL,
+        induced_torque_model=INDUCED_TORQUE_MODEL,
         k_ind=K_IND,
         fx=FX_COLEMAN,
         fy=FY_COLEMAN,
