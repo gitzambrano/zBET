@@ -693,25 +693,25 @@ $$
 C_Q=C_{Qi}+C_{Q0}.
 $$
 
-### 6.5 Why the hybrid formulation is internally coherent
+### 6.5 Energy consistency of the `energy_balance` torque model
 
 The total aerodynamic power transferred to the air is
 
-$$
+$
 C_{P,\mathrm{air}}
 =
 C_Q+\mu C_H.
-$$
+$
 
 Using
 
-$$
+$
 C_H=C_{Hi}+C_{H0}
-$$
+$
 
-and the energy-balance expression for $C_{Qi}$ gives
+and `INDUCED_TORQUE_MODEL = "energy_balance"` gives
 
-$$
+$
 C_{P,\mathrm{air}}
 =
 K_{\mathrm{ind}}\lambda_iC_T
@@ -721,26 +721,19 @@ K_{\mathrm{ind}}\lambda_iC_T
 C_{Q0}
 +
 \mu C_{H0}.
-$$
+$
 
-The induced in-plane term cancels between shaft torque and translational work. This is the expected energy bookkeeping behind the implemented hybrid formulation.
+The induced in-plane term cancels between shaft torque and translational work. This is the intended energy bookkeeping of the `energy_balance` torque formulation.
 
-### 6.6 Are the simple and hybrid modes “the same”?
+### 6.6 Relationship between the selector choices
 
-No.
+The two selectors are independent. $C_T$, $C_{Hi}$, $C_Y$, $C_{Mx}$, and $C_{My}$ retain the same analytical weighted-moment formulation, while `PROFILE_DRAG_MODEL` changes the profile-drag calculation and `INDUCED_TORQUE_MODEL` changes the induced shaft-torque calculation.
 
-They use the same analytical model for $C_T$, $C_{Hi}$, $C_Y$, $C_{Mx}$, and $C_{My}$, but differ in:
+The `analytical_bet` and higher-fidelity alternatives are not required to agree numerically. They approach one another only when the numerical profile quadrature approaches the assumptions of the closed-form profile model and when the energy-balance torque uses assumptions compatible with the direct analytical BET torque.
 
-1. the profile-drag calculation; and
-2. the induced shaft-torque closure.
+### 6.7 Fully integrated force balance
 
-They can only agree closely when the numerical profile integral collapses toward the assumptions of the closed-form profile model and when the energy-balance torque uses assumptions compatible with the analytical BET torque.
-
-### 6.7 Should a truly complete model integrate everything?
-
-Yes.
-
-If a future mode is called **full force balance** or **fully integrated BET**, the consistent formulation is to use the same local velocity, angle of attack, lift/drag model, reverse-flow treatment, and induced-flow state for every force and moment channel, then integrate all of them over radius and azimuth.
+A fully integrated force-balance formulation would use the same local velocity, angle of attack, lift/drag model, reverse-flow treatment, and induced-flow state for every force and moment channel, then integrate all of them over radius and azimuth.
 
 Doing this robustly requires additional modeling choices that zBET currently avoids, especially:
 
@@ -751,7 +744,7 @@ Doing this robustly requires additional modeling choices that zBET currently avo
 - the distinction between spanwise flow effects on lift and drag;
 - consistent local induced velocity in the section kinematics.
 
-For that reason, the present hybrid architecture is retained and documented explicitly rather than being mislabeled as a full numerical force-balance solver.
+zBET therefore keeps its current mixed analytical/numerical architecture explicit instead of presenting it as a full force-balance solver.
 
 ---
 
