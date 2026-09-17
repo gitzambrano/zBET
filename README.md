@@ -2,33 +2,42 @@
 
 **zBET** is a fast, semi-empirical **Blade Element Theory (BET)** rotor solver for conceptual sizing, parametric sweeps, and preliminary rotor-performance studies. It combines closed-form radial moments for the main blade-element loads with global momentum theory for mean induced velocity and optional first-harmonic inflow models.
 
-> **Important model-scope note:** the current configuration value `"complete"` is a **legacy name for a hybrid higher-fidelity path**. It is not a fully numerical force-balance solution. The distinction is documented explicitly below.
-
 For the equations, assumptions, implementation mapping, and literature cross-check against Wayne Johnson and J. Gordon Leishman, see [zBET Documentation](zBET-documentation.md).
 
 ---
 
-## Model Fidelity
+## Aerodynamic Model Selectors
 
-zBET has **two independent model selectors**:
+zBET uses **two independent and explicit selectors**:
 
-- `PROFILE_MODEL`: controls the **profile-drag contribution** to in-plane force and shaft torque.
-- `CQ_MODEL`: controls the **induced contribution to shaft torque**.
+- `PROFILE_DRAG_MODEL`
+  - `"analytical_bet"`: closed-form BET profile force and torque.
+  - `"numerical_profile"`: radial × azimuthal Gauss-Legendre profile-drag quadrature.
+- `INDUCED_TORQUE_MODEL`
+  - `"analytical_bet"`: direct analytical BET induced torque.
+  - `"energy_balance"`: induced shaft torque from the energy-balance closure with `K_IND`.
 
-The rest of the rotor loads currently use the same analytical weighted-moment formulation in both modes.
+The default configuration is:
 
-| Quantity | `"simple_bet"` | `"complete"` |
-| --- | --- | --- |
-| $C_T$ | Analytical BET moments | **Same analytical BET moments** |
-| $C_{Hi}$, $C_Y$, $C_{Mx}$, $C_{My}$ | Analytical BET moments | **Same analytical BET moments** |
-| $C_{H0}$, $C_{Q0}$ via `PROFILE_MODEL` | Closed-form profile formulas | 2-D Gauss-Legendre quadrature of profile drag |
-| $C_{Qi}$ via `CQ_MODEL` | Direct analytical BET expression | Energy-balance closure with $K_{\mathrm{ind}}$ |
-| $C_Q$ | $C_{Qi}+C_{Q0}$ | $C_{Qi}+C_{Q0}$ |
+```python
+PROFILE_DRAG_MODEL = "numerical_profile"
+INDUCED_TORQUE_MODEL = "energy_balance"
+```
 
-Therefore, **the two modes are not expected to be numerically identical**. In particular, the default `K_IND = 1.15` intentionally makes the energy-balance induced torque differ from the ideal analytical BET induced torque.
+The principal lift-induced loads remain analytical in both selector families:
 
-A genuinely fully integrated force-balance model would evaluate the same local section state and aerodynamic model consistently for **all** force and moment channels ($T,H,Y,Q,M_x,M_y$) over radius and azimuth. zBET does not currently claim to be that model; its design target is a fast and transparent conceptual-analysis solver.
+| Quantity | Formulation |
+| --- | --- |
+| $C_T$ | Analytical weighted-moment BET |
+| $C_{Hi}$, $C_Y$ | Analytical weighted-moment BET |
+| $C_{Mx}$, $C_{My}$ | Analytical weighted-moment BET |
+| $C_{H0}$, $C_{Q0}$ | Selected by `PROFILE_DRAG_MODEL` |
+| $C_{Qi}$ | Selected by `INDUCED_TORQUE_MODEL` |
+| $C_Q$ | $C_{Qi}+C_{Q0}$ |
 
+The selectors are deliberately named after the physics they implement. zBET does not expose a generic “simple/complete” switch.
+
+A fully integrated force-balance solver would evaluate the same local aerodynamic state consistently for all force and moment channels over radius and azimuth. zBET is intentionally lighter than that: its design target is fast, transparent conceptual analysis.
 ---
 
 ## BET vs. BEMT
