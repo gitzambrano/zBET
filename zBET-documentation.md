@@ -40,6 +40,7 @@ INDUCED_TORQUE_MODEL = "energy_balance"
 These selectors are intentionally independent. The principal lift-induced loads—$C_T$, $C_{Hi}$, $C_Y$, $C_{Mx}$, and $C_{My}$—always use the analytical weighted-moment formulation. Only the profile contribution $C_{H0},C_{Q0}$ and the induced torque $C_{Qi}$ switch formulation.
 
 There is no generic “simple” or “complete” aerodynamic mode.
+
 ---
 
 ## 2. Coordinate System and Sign Conventions
