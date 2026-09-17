@@ -21,29 +21,25 @@ The implementation has been checked against the formulation and interpretation u
 
 Both references distinguish the **general blade-element force integration** from the **closed-form formulas obtained after simplifying assumptions**. Johnson also shows that force-balance and energy-balance methods are equivalent when they are built from the same assumptions and load model.
 
-### 1.2 What the current mode names actually mean
+### 1.2 Aerodynamic model selectors
 
-zBET has two independent selectors:
+zBET uses two independent selectors whose names describe the physics directly.
 
-- `PROFILE_MODEL`
-- `CQ_MODEL`
-
-The legacy value `"complete"` does **not** mean that every rotor load is obtained from a full numerical section-force integration.
-
-| Output or contribution | `"simple_bet"` | `"complete"` |
+| Selector | `"analytical_bet"` | Higher-fidelity alternative |
 | --- | --- | --- |
-| `CT` | analytical weighted moments | same analytical weighted moments |
-| `CHi` | analytical weighted moments | same analytical weighted moments |
-| `CY` | analytical weighted moments | same analytical weighted moments |
-| `CMx`, `CMy` | analytical weighted moments | same analytical weighted moments |
-| `CH0`, `CQ0` through `PROFILE_MODEL` | closed-form profile approximation | radial × azimuthal Gauss-Legendre quadrature |
-| `CQi` through `CQ_MODEL` | direct analytical BET expression | energy-balance closure with `K_IND` |
-| `CQ` | `CQi + CQ0` | `CQi + CQ0` |
+| `PROFILE_DRAG_MODEL` | closed-form BET profile force and torque | `"numerical_profile"`: radial × azimuthal Gauss-Legendre profile-drag quadrature |
+| `INDUCED_TORQUE_MODEL` | direct analytical BET induced torque | `"energy_balance"`: energy-balance shaft-torque closure with `K_IND` |
 
-> **Terminology:** `"complete"` is retained for backward compatibility, but it should be read as **hybrid higher-fidelity mode**, not as “complete force balance.”
+The defaults are
 
-The simple and hybrid modes are therefore **not expected to give identical results**. They approach each other only when their assumptions and empirical corrections approach the same limiting model. In particular, the default `K_IND = 1.15` intentionally increases induced power relative to ideal BET.
+```python
+PROFILE_DRAG_MODEL = "numerical_profile"
+INDUCED_TORQUE_MODEL = "energy_balance"
+```
 
+These selectors are intentionally independent. The principal lift-induced loads—$C_T$, $C_{Hi}$, $C_Y$, $C_{Mx}$, and $C_{My}$—always use the analytical weighted-moment formulation. Only the profile contribution $C_{H0},C_{Q0}$ and the induced torque $C_{Qi}$ switch formulation.
+
+There is no generic “simple” or “complete” aerodynamic mode.
 ---
 
 ## 2. Coordinate System and Sign Conventions
@@ -420,7 +416,7 @@ $$
 
 A **fully integrated force-balance solver** would evaluate a common local aerodynamic state and consistently integrate the resulting forces for thrust, in-plane forces, torque, and hub moments over radius and azimuth.
 
-That is **not** what the current zBET `"complete"` mode does.
+zBET does not currently expose a fully integrated force-balance model.
 
 ### 6.2 Analytical weighted moments used by zBET
 
@@ -519,7 +515,7 @@ C_{My}
 \frac{a\lambda_{1c}}{4}I_3.
 $$
 
-These expressions are used regardless of whether `CQ_MODEL` or `PROFILE_MODEL` is set to `"simple_bet"` or `"complete"`.
+These expressions are independent of `PROFILE_DRAG_MODEL` and `INDUCED_TORQUE_MODEL`.
 
 ### 6.3 Profile-drag models
 
@@ -533,7 +529,7 @@ $$
 
 #### Analytical profile model
 
-With `PROFILE_MODEL = "simple_bet"`,
+With `PROFILE_DRAG_MODEL = "analytical_bet"`,
 
 $$
 C_{H0}
@@ -588,7 +584,7 @@ Thus the zBET shaft-torque expression is consistent with the classical simple pr
 
 #### Numerical profile model
 
-With `PROFILE_MODEL = "complete"`, zBET uses Gauss-Legendre quadrature in radius and azimuth. The implemented kinematics are
+With `PROFILE_DRAG_MODEL = "numerical_profile"`, zBET uses Gauss-Legendre quadrature in radius and azimuth. The implemented kinematics are
 
 $$
 u_T=x+\mu\sin\psi,
@@ -640,7 +636,7 @@ This numerical path captures radial velocity and reverse-flow sign changes in th
 
 #### Direct analytical BET torque
 
-With `CQ_MODEL = "simple_bet"`,
+With `INDUCED_TORQUE_MODEL = "analytical_bet"`,
 
 $$
 C_{Qi}
@@ -663,7 +659,7 @@ This is the direct analytical small-angle BET torque expression used by the code
 
 #### Energy-balance torque
 
-With `CQ_MODEL = "complete"`,
+With `INDUCED_TORQUE_MODEL = "energy_balance"`,
 
 $$
 C_{Qi}
@@ -857,7 +853,7 @@ The current implementation is intentionally compact. Important limitations are:
 - no full reverse-flow airfoil model;
 - first-harmonic prescribed inflow gradients rather than a free wake;
 - profile quadrature is numerical, but the lift-induced loads remain analytical;
-- `CQ_MODEL = "complete"` is an energy-balance closure, not direct torque quadrature.
+- `INDUCED_TORQUE_MODEL = "energy_balance"` is an energy-balance closure, not direct torque quadrature.
 
 These limitations are compatible with the intended use of zBET as a rapid conceptual-analysis tool. They should be considered before applying the code to high advance ratio, severe descent, stalled conditions, or detailed loads work.
 
@@ -898,10 +894,10 @@ These limitations are compatible with the intended use of zBET as a rapid concep
 
 ### Torque and profile paths
 
-- `CQ_MODEL = "simple_bet"`: direct analytical induced torque
-- `CQ_MODEL = "complete"`: energy-balance induced torque
-- `PROFILE_MODEL = "simple_bet"`: analytical profile force and torque
-- `PROFILE_MODEL = "complete"`: numerical profile-drag quadrature
+- `INDUCED_TORQUE_MODEL = "analytical_bet"`: direct analytical induced torque
+- `INDUCED_TORQUE_MODEL = "energy_balance"`: energy-balance induced torque
+- `PROFILE_DRAG_MODEL = "analytical_bet"`: closed-form BET profile force and torque
+- `PROFILE_DRAG_MODEL = "numerical_profile"`: numerical profile-drag quadrature
 
 ---
 
