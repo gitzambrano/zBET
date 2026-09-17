@@ -19,15 +19,15 @@ The rest of the rotor loads currently use the same analytical weighted-moment fo
 
 | Quantity | \`"simple_bet"\` | \`"complete"\` |
 | --- | --- | --- |
-| \(C_T\) | Analytical BET moments | **Same analytical BET moments** |
-| \(C_{Hi}\), \(C_Y\), \(C_{Mx}\), \(C_{My}\) | Analytical BET moments | **Same analytical BET moments** |
-| \(C_{H0}\), \(C_{Q0}\) via \`PROFILE_MODEL\` | Closed-form profile formulas | 2-D Gauss-Legendre quadrature of profile drag |
-| \(C_{Qi}\) via \`CQ_MODEL\` | Direct analytical BET expression | Energy-balance closure with \(K_{\mathrm{ind}}\) |
-| \(C_Q\) | \(C_{Qi}+C_{Q0}\) | \(C_{Qi}+C_{Q0}\) |
+| $C_T$ | Analytical BET moments | **Same analytical BET moments** |
+| $C_{Hi}$, $C_Y$, $C_{Mx}$, $C_{My}$ | Analytical BET moments | **Same analytical BET moments** |
+| $C_{H0}$, $C_{Q0}$ via \`PROFILE_MODEL\` | Closed-form profile formulas | 2-D Gauss-Legendre quadrature of profile drag |
+| $C_{Qi}$ via \`CQ_MODEL\` | Direct analytical BET expression | Energy-balance closure with $K_{\mathrm{ind}}$ |
+| $C_Q$ | $C_{Qi}+C_{Q0}$ | $C_{Qi}+C_{Q0}$ |
 
 Therefore, **the two modes are not expected to be numerically identical**. In particular, the default \`K_IND = 1.15\` intentionally makes the energy-balance induced torque differ from the ideal analytical BET induced torque.
 
-A genuinely fully integrated force-balance model would evaluate the same local section state and aerodynamic model consistently for **all** force and moment channels (\(T,H,Y,Q,M_x,M_y\)) over radius and azimuth. zBET does not currently claim to be that model; its design target is a fast and transparent conceptual-analysis solver.
+A genuinely fully integrated force-balance model would evaluate the same local section state and aerodynamic model consistently for **all** force and moment channels ($T,H,Y,Q,M_x,M_y$) over radius and azimuth. zBET does not currently claim to be that model; its design target is a fast and transparent conceptual-analysis solver.
 
 ---
 
@@ -47,24 +47,24 @@ This keeps execution fast while preserving the main physics needed for conceptua
 ## Coordinate System and Flight Conventions
 
 - **Hub axes**
-  - \(+x\): forward.
-  - \(+y\): right / starboard.
-  - \(+z\): downward through the rotor disk.
+  - $+x$: forward.
+  - $+y$: right / starboard.
+  - $+z$: downward through the rotor disk.
 - **Rotor rotation**
   - Viewed from above, the rotor turns counter-clockwise.
-  - The advancing blade is on the right at \(\psi=90^\circ\).
-  - The local tangential velocity is \(u_T=x+\mu\sin\psi\).
+  - The advancing blade is on the right at $\psi=90^\circ$.
+  - The local tangential velocity is $u_T=x+\mu\sin\psi$.
 - **Thrust and drag**
-  - Positive thrust acts upward, along \(-z\).
-  - Positive \(C_H\) is rotor drag acting aft, along \(-x\).
+  - Positive thrust acts upward, along $-z$.
+  - Positive $C_H$ is rotor drag acting aft, along $-x$.
 - **Shaft torque**
-  - \(C_Q>0\) is the positive magnitude of shaft torque required to power the rotor.
-  - Shaft power is \(P=Q\Omega\).
+  - $C_Q>0$ is the positive magnitude of shaft torque required to power the rotor.
+  - Shaft power is $P=Q\Omega$.
 - **Axial flow**
-  - \(\lambda=\mu_z+\lambda_i\).
-  - \(\mu_z>0\): imposed relative flow is downward through the disk.
-  - \(\mu_z<0\): imposed relative flow is upward through the disk.
-  - With \`AXIAL_FLOW = "alpha"\`, \(\mu_z=-\mu\tan\alpha\).
+  - $\lambda=\mu_z+\lambda_i$.
+  - $\mu_z>0$: imposed relative flow is downward through the disk.
+  - $\mu_z<0$: imposed relative flow is upward through the disk.
+  - With \`AXIAL_FLOW = "alpha"\`, $\mu_z=-\mu\tan\alpha$.
 
 ---
 
@@ -81,15 +81,15 @@ This keeps execution fast while preserving the main physics needed for conceptua
   - Constant chord or linear taper
 - **Pitch and hover trim**
   - Constant collective or linear twist
-  - Collective trim to target \(C_T\) or thrust
+  - Collective trim to target $C_T$ or thrust
   - RPM trim to dimensional thrust
 - **Engineering corrections**
   - Fixed or Sissingh-style effective tip-loss radius
   - Optional Prandtl-Glauert lift-slope correction
 - **Outputs**
-  - \(C_T,C_Q,C_{Qi},C_{Q0},C_H,C_{Hi},C_{H0},C_Y,C_{Mx},C_{My}\)
-  - \(C_{P,\mathrm{air}}=C_Q+\mu C_H\)
-  - Effective rotor \(L/D\)
+  - $C_T,C_Q,C_{Qi},C_{Q0},C_H,C_{Hi},C_{H0},C_Y,C_{Mx},C_{My}$
+  - $C_{P,\mathrm{air}}=C_Q+\mu C_H$
+  - Effective rotor $L/D$
   - Hover figure of merit
   - Dimensional thrust and power
 
