@@ -1,106 +1,145 @@
 # zBET
 
-**zBET** is a fast, semi-empirical rotor aerodynamic solver based on **Blade Element Theory (BET)** with analytical moment integration, coupled with global momentum theory for mean downwash. It is specifically designed for rapid conceptual sizing, parametric sweeps, and preliminary trade studies of helicopter and rotary-wing rotors.
+**zBET** is a fast, semi-empirical **Blade Element Theory (BET)** rotor solver for conceptual sizing, parametric sweeps, and preliminary rotor-performance studies. It combines closed-form radial moments for the main blade-element loads with global momentum theory for mean induced velocity and optional first-harmonic inflow models.
 
-> **BET vs. BEMT**: `zBET` evaluates blade section aerodynamics via closed-form radial-moment integrals and global inflow distributions rather than discretized, iterative multi-annulus BEMT strip-theory loops. This delivers execution times in milliseconds, ideal for conceptual design and optimizer sweeps.
+> **Important model-scope note:** the current configuration value \`"complete"\` is a **legacy name for a hybrid higher-fidelity path**. It is not a fully numerical force-balance solution. The distinction is documented explicitly below.
 
-For the complete theoretical derivations, coordinate frame diagrams, and analytical formulas, see the [zBET Documentation](zBET-documentation.md).
+For the equations, assumptions, implementation mapping, and literature cross-check against Wayne Johnson and J. Gordon Leishman, see [zBET Documentation](zBET-documentation.md).
 
 ---
 
-## Coordinate System & Flight Conventions
+## Model Fidelity
 
-- **Hub Coordinate Axes**:
-  - $x$-axis: Points **FORWARD** (aircraft nose / nominal flight direction).
-  - $y$-axis: Points to the **RIGHT** (starboard side).
-  - $z$-axis: Points **DOWNWARD** (through the bottom of the rotor disk).
-- **Rotor Rotation**:
-  - Viewed from **ABOVE** (looking down along $+z$): The blades rotate **COUNTER-CLOCKWISE (CCW)**.
-  - Advancing blade is on the **STARBOARD / RIGHT** side ($\psi = 90^\circ$), where tangential speed is $u_T = x + \mu\sin\psi$.
-  - Retreating blade is on the **PORT / LEFT** side ($\psi = 270^\circ$), where tangential speed is $u_T = x - \mu$.
-- **Drive Torque & Fuselage Reaction**:
-  - Aerodynamic blade drag resists rotation in the **CLOCKWISE (CW)** direction ($+z$ axis).
-  - The drive shaft torque ($Q$) supplied by the engine acts in the **$-z$ direction** (CCW drive).
-  - Rotor shaft torque coefficient $C_Q > 0$ is defined as the positive magnitude of torque required to power the rotor ($P = Q\Omega > 0$).
-  - The reaction torque exerted by the rotor on the fuselage is **CLOCKWISE ($+z$ direction)** viewed from above, counteracted by the tail rotor.
-- **Axial Inflow & Wind Direction ($\mu_z$ and $\alpha$)**:
-  - Total axial inflow along the downward $+z$ axis is $\lambda = \mu_z + \lambda_i$, where induced downwash $\lambda_i \ge 0$ is always directed downward ($+z$).
-  - **$\mu_z > 0$ (or vertical velocity $w > 0$)**: Relative wind flows **DOWNWARD** through the disk (oncoming wind coming from **ABOVE** the rotor, e.g. vertical climb).
-  - **$\mu_z < 0$ (or vertical velocity $w < 0$)**: Relative wind flows **UPWARD** through the disk (oncoming wind coming from **BELOW** the rotor, e.g. vertical descent).
-  - **$\alpha > 0$ (Wind from BELOW)**: Rotor disk tilted nose-up relative to oncoming airflow. The relative wind enters the **UNDERSIDE / BOTTOM** of the disk ($\mu_z = -\mu \tan\alpha < 0$), opposing downwash and **increasing blade section angle of attack and rotor thrust $C_T$**.
-  - **$\alpha < 0$ (Wind from ABOVE)**: Rotor disk tilted nose-down relative to oncoming airflow. The relative wind enters the **TOP** of the disk ($\mu_z = -\mu \tan\alpha > 0$), adding to downwash and decreasing rotor thrust $C_T$.
+zBET has **two independent model selectors**:
+
+- \`PROFILE_MODEL\`: controls the **profile-drag contribution** to in-plane force and shaft torque.
+- \`CQ_MODEL\`: controls the **induced contribution to shaft torque**.
+
+The rest of the rotor loads currently use the same analytical weighted-moment formulation in both modes.
+
+| Quantity | \`"simple_bet"\` | \`"complete"\` |
+| --- | --- | --- |
+| \(C_T\) | Analytical BET moments | **Same analytical BET moments** |
+| \(C_{Hi}\), \(C_Y\), \(C_{Mx}\), \(C_{My}\) | Analytical BET moments | **Same analytical BET moments** |
+| \(C_{H0}\), \(C_{Q0}\) via \`PROFILE_MODEL\` | Closed-form profile formulas | 2-D Gauss-Legendre quadrature of profile drag |
+| \(C_{Qi}\) via \`CQ_MODEL\` | Direct analytical BET expression | Energy-balance closure with \(K_{\mathrm{ind}}\) |
+| \(C_Q\) | \(C_{Qi}+C_{Q0}\) | \(C_{Qi}+C_{Q0}\) |
+
+Therefore, **the two modes are not expected to be numerically identical**. In particular, the default \`K_IND = 1.15\` intentionally makes the energy-balance induced torque differ from the ideal analytical BET induced torque.
+
+A genuinely fully integrated force-balance model would evaluate the same local section state and aerodynamic model consistently for **all** force and moment channels (\(T,H,Y,Q,M_x,M_y\)) over radius and azimuth. zBET does not currently claim to be that model; its design target is a fast and transparent conceptual-analysis solver.
+
+---
+
+## BET vs. BEMT
+
+zBET does not solve a separate local momentum balance at every annulus. Instead, it:
+
+1. evaluates blade-element loads using analytical radial moments;
+2. solves one global momentum-theory equation for mean induced velocity;
+3. applies optional first-harmonic inflow gradients; and
+4. uses numerical quadrature only where explicitly selected for profile drag.
+
+This keeps execution fast while preserving the main physics needed for conceptual rotor studies.
+
+---
+
+## Coordinate System and Flight Conventions
+
+- **Hub axes**
+  - \(+x\): forward.
+  - \(+y\): right / starboard.
+  - \(+z\): downward through the rotor disk.
+- **Rotor rotation**
+  - Viewed from above, the rotor turns counter-clockwise.
+  - The advancing blade is on the right at \(\psi=90^\circ\).
+  - The local tangential velocity is \(u_T=x+\mu\sin\psi\).
+- **Thrust and drag**
+  - Positive thrust acts upward, along \(-z\).
+  - Positive \(C_H\) is rotor drag acting aft, along \(-x\).
+- **Shaft torque**
+  - \(C_Q>0\) is the positive magnitude of shaft torque required to power the rotor.
+  - Shaft power is \(P=Q\Omega\).
+- **Axial flow**
+  - \(\lambda=\mu_z+\lambda_i\).
+  - \(\mu_z>0\): imposed relative flow is downward through the disk.
+  - \(\mu_z<0\): imposed relative flow is upward through the disk.
+  - With \`AXIAL_FLOW = "alpha"\`, \(\mu_z=-\mu\tan\alpha\).
 
 ---
 
 ## Features
 
-- **4 Inflow Models**:
-  - Classic Uniform Inflow (Glauert, 1926)
-  - Simple Coleman Inflow (Coleman et al., 1945)
-  - NDARC Coleman-Feingold Inflow with lateral gradient $K_y$ (NASA/TP-2009-215402)
-  - Drees Inflow with longitudinal and lateral gradients (Drees, 1949)
-- **3 Solidity Options & Blade Taper**:
-  - Reference solidity $\sigma_{\mathrm{ref}}$ (extrapolated to hub $r=0$)
-  - True geometric physical solidity $\sigma_{\mathrm{geom}}$ (actual blade area / disk area)
-  - Thrust-weighted equivalent solidity $\sigma_{\mathrm{thrust}}$ ($r^2$-weighted)
-  - Linear blade chord taper ($c_{\mathrm{root}}$ to $c_{\mathrm{tip}}$)
-- **Blade Pitch & Hover Trim Modes**:
-  - Collective trim preserving total twist invariant ($\Delta\theta = \text{const}$)
-  - RPM trim targeting rotor thrust in Newtons ($T$)
-  - Constant collective pitch or linear twist ($\theta_{\mathrm{root}}$ to $\theta_{\mathrm{tip}}$)
-- **Advanced Aerodynamic Corrections**:
-  - Blade tip loss factor $B$ (fixed or Sissingh self-adjusting formula)
-  - Prandtl-Glauert compressibility correction $a(M)$ on section lift curve slope
-- **Comprehensive Performance Outputs**:
-  - Non-dimensional coefficients: $C_T, C_Q, C_{Qi}, C_{Q0}, C_H, C_{Hi}, C_{H0}, C_Y, C_{Mx}, C_{My}$
-  - Performance metrics: Total air power $C_{P,\mathrm{air}} = C_Q + \mu C_H$, effective rotor lift-to-drag $(L/D)_{\mathrm{eff}} = \mu C_T / C_{P,\mathrm{air}}$, and hover Figure of Merit ($FoM$)
-  - Dimensional outputs: Thrust $T$ [N], Shaft Power $P$ [kW], and Total Air Power $P_{\mathrm{air}}$ [kW]
+- **Inflow models**
+  - Uniform
+  - Coleman simple
+  - Coleman-Feingold / NDARC
+  - Drees
+- **Blade geometry**
+  - Reference, physical geometric, and thrust-weighted solidity
+  - Root cutout
+  - Constant chord or linear taper
+- **Pitch and hover trim**
+  - Constant collective or linear twist
+  - Collective trim to target \(C_T\) or thrust
+  - RPM trim to dimensional thrust
+- **Engineering corrections**
+  - Fixed or Sissingh-style effective tip-loss radius
+  - Optional Prandtl-Glauert lift-slope correction
+- **Outputs**
+  - \(C_T,C_Q,C_{Qi},C_{Q0},C_H,C_{Hi},C_{H0},C_Y,C_{Mx},C_{My}\)
+  - \(C_{P,\mathrm{air}}=C_Q+\mu C_H\)
+  - Effective rotor \(L/D\)
+  - Hover figure of merit
+  - Dimensional thrust and power
 
 ---
 
 ## Quick Start
 
 ### Requirements
+
 - Python 3.9+
-- `numpy`, `pandas`, `matplotlib`, `pytest`
+- \`numpy\`
+- \`pandas\`
+- \`matplotlib\`
+- \`pytest\`
 
-```bash
+\`\`\`bash
 pip install numpy pandas matplotlib pytest
-```
+\`\`\`
 
-### Running the Solver
-Run the forward flight sweep with utility helicopter default parameters:
-```bash
+### Run the solver
+
+\`\`\`bash
 python zBET.py
-```
+\`\`\`
 
-Outputs are automatically generated in the `outputs/` directory:
-- `outputs/zBET.csv` (consolidated dataset with all inflow models)
-- `outputs/zBET_<model>.csv` (individual CSV per inflow model)
-- 14 performance plots vs. $\mu$ for each inflow model
+Generated CSV files and plots are written to \`outputs/\`.
 
-### Running Tests
-Run the unit test suite:
-```bash
+### Run the test suite
+
+\`\`\`bash
 pytest
-```
+\`\`\`
 
 ---
 
 ## Project Structure
-```text
+
+\`\`\`text
 zBET/
-├── zBET.py                  # Core fast BET solver and advance ratio sweep engine
-├── zBET-documentation.md    # Complete mathematical theory and analytical derivations
-├── README.md                # Project overview and quickstart guide
-├── AGENTS.md                # Minimalist guidelines for AI agents
-├── .gitignore               # Excludes generated results, caches, and local files
+├── zBET.py
+├── zBET-documentation.md
+├── README.md
+├── AGENTS.md
+├── .gitignore
 └── tests/
-    └── test_bet_rotor_mu_sweep.py # Comprehensive unit test suite
-```
+    └── test_bet_rotor_mu_sweep.py
+\`\`\`
 
 ---
 
 ## Documentation
 
-Full derivations, coordinate conventions, and analytical integrals are documented in [zBET-documentation.md](zBET-documentation.md).
+The implementation-matched theory, sign conventions, mode definitions, assumptions, and literature references are in [zBET-documentation.md](zBET-documentation.md).
