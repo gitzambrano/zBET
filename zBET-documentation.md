@@ -752,55 +752,83 @@ $$
 
 Shaft power is
 
-$$
+$
 C_{P,\mathrm{shaft}}=C_Q.
-$$
+$
 
-Aerodynamic power relative to the undisturbed air includes translational work of the hub:
+zBET defines the air-power bookkeeping quantity `CPair` by adding the in-plane translational work to shaft power:
 
-$$
-C_{P,\mathrm{air}}
-=
-C_Q+\mu C_H-\mu_z C_T.
-$$
+$
+\boxed{
+C_{Pair}=C_Q+\mu C_H
+}.
+$
 
-For purely edgewise flight ($\mu_z=0$), this reduces to the familiar
-
-$$
-C_{P,\mathrm{air}}=C_Q+\mu C_H.
-$$
+There is no separate $-\mu_zC_T$ correction in this torque route. The climb contribution is already embedded in $C_Q$ through the induced-torque balance.
 
 Using
 
-$$
+$
 C_H=C_{Hi}+C_{H0},
 \qquad
 C_T=C_{T,\mathrm{lift}}+C_{T0},
-$$
+$
 
 and `INDUCED_TORQUE_MODEL = "energy_balance"`,
 
-$$
+$
 C_{Qi}
 =
 K_{\mathrm{ind}}\lambda_iC_{T,\mathrm{lift}}
 +\mu_zC_{T,\mathrm{lift}}
 -\mu C_{Hi}.
-$$
+$
 
-Therefore
+Therefore the torque route gives
 
-$$
-C_{P,\mathrm{air}}
+$
+\begin{aligned}
+C_{Pair}
+&=C_Q+\mu C_H \\
+&=
+K_{\mathrm{ind}}\lambda_iC_{T,\mathrm{lift}}
++\mu_zC_{T,\mathrm{lift}}
++C_{Q0}
++\mu C_{H0}.
+\end{aligned}
+$
+
+The vector profile-power identity is
+
+$
+C_{P0}
+=
+C_{Q0}+\mu C_{H0}-\mu_zC_{T0}.
+$
+
+Since $C_T=C_{T,\mathrm{lift}}+C_{T0}$,
+
+$
+\boxed{
+C_{Pair}
 =
 K_{\mathrm{ind}}\lambda_iC_{T,\mathrm{lift}}
-+
-\left(
-C_{Q0}+\mu C_{H0}-\mu_z C_{T0}
-\right).
-$$
++\mu_zC_T
++C_{P0}
+}.
+$
 
-The induced in-plane and imposed-axial translational terms cancel exactly. The remaining profile term is Johnson's profile-power identity. This keeps shaft torque, translational work, induced power, and profile dissipation distinct.
+This is the equivalent **energy-balance route**. The $-\mu_zC_{T0}$ term belongs only to the profile-power identity; it must not be confused with the global climb term $+\mu_zC_T$. The two routes are algebraically identical:
+
+$
+\boxed{
+C_Q+\mu C_H
+=
+K_{\mathrm{ind}}\lambda_iC_{T,\mathrm{lift}}
++\mu_zC_T
++C_{P0}
+}.
+$
 
 
 ### 6.6 Relationship between the selector choices
@@ -842,23 +870,39 @@ $$
 
 No $\mu C_H$ term belongs to shaft power: $C_Q$ is the mechanical torque coefficient about the rotor axis.
 
-### 7.2 Aerodynamic power relative to the air
+### 7.2 Air power (`CPair`)
 
-The hub also translates through the air. The corresponding aerodynamic work is
+zBET reports air power by either of two exactly equivalent routes.
 
-$$
-C_{P,\mathrm{air}}
+**Torque route**
+
+$
+\boxed{
+C_{Pair}=C_Q+\mu C_H
+}.
+$
+
+Here $C_Q$ is the shaft-power coefficient. The term $\mu C_H$ is the in-plane translational work and is not contained in $C_Q$.
+
+**Energy-balance route**
+
+$
+\boxed{
+C_{Pair}
 =
-C_Q+\mu C_H-\mu_zC_T.
-$$
+K_{\mathrm{ind}}\lambda_iC_{T,\mathrm{lift}}
++\mu_zC_T
++C_{P0}
+},
+$
 
-The $\mu C_H$ term is translational work against the rotor's longitudinal force and is **not** contained in $C_Q$. For edgewise flight, $\mu_z=0$ and
+with
 
-$$
-C_{P,\mathrm{air}}=C_Q+\mu C_H.
-$$
+$
+C_{P0}=C_{Q0}+\mu C_{H0}-\mu_zC_{T0}.
+$
 
-zBET reports this quantity as `CPair`.
+For $\mu_z>0$ (climb in the zBET convention), $+\mu_zC_T$ is the climb-power contribution. The axial profile term $-\mu_zC_{T0}$ is part of $C_{P0}$ only.
 
 
 ### 7.3 Effective rotor lift-to-drag ratio
