@@ -753,6 +753,27 @@ def _gauss_nodes(order):
     return np.polynomial.legendre.leggauss(order)
 
 
+def induced_torque_coefficient(mu, lam, lambda_1c, lambda_1s, pitch, geometry, a):
+    """Calculates CQi from the direct radial BET torque integral."""
+    x0 = geometry.root_cutout
+    b = geometry.b_factor()
+    if b <= x0:
+        return 0.0
+
+    xg, wg = _gauss_nodes(64)
+    x = 0.5 * (b - x0) * (xg + 1.0) + x0
+    weights = 0.5 * (b - x0) * wg
+
+    sigma_x = geometry.solidity.sigma(x)
+    theta_x = pitch.theta(x)
+    integrand = 0.5 * sigma_x * a * (
+        (lam + 0.5 * mu * lambda_1s) * theta_x * x * x
+        - lam * lam * x
+        - 0.5 * (lambda_1c * lambda_1c + lambda_1s * lambda_1s) * x ** 3
+    )
+    return float(np.sum(weights * integrand))
+
+
 def profile_drag_coefficients(mu, mu_z, geometry):
     """Calculates CH0 and CQ0 by direct vectorial profile-drag integration.
 
@@ -827,11 +848,9 @@ def coefficients(
     # Induced longitudinal H-force CHi:
     chi = 0.25 * a * (lam * mu * t_mom[0] + lambda_1s * (t_mom[2] - 2.0 * lam * i_mom[1]))
 
-    # Induced shaft torque from the BET torque integral.
-    cqi = 0.5 * a * (
-        (lam + 0.5 * mu * lambda_1s) * t_mom[2]
-        - lam * lam * i_mom[1]
-        - 0.5 * (lambda_1c * lambda_1c + lambda_1s * lambda_1s) * i_mom[3]
+    # Induced shaft torque from the direct BET torque integral.
+    cqi = induced_torque_coefficient(
+        mu, lam, lambda_1c, lambda_1s, pitch, geometry, a
     )
 
     # Side force CY (lateral projection of normal force):
