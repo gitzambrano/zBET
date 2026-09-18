@@ -805,7 +805,7 @@ $
 C_{Pair}
 =
 K_{\mathrm{ind}}\lambda_iC_T
-+\mu_z(C_T+C_{T0})
++\mu_zC_T+\mu_zC_{T0}
 +C_{P0,\mathrm{air}}
 }.
 $
@@ -817,7 +817,7 @@ $
 C_Q+\mu C_H
 =
 K_{\mathrm{ind}}\lambda_iC_T
-+\mu_z(C_T+C_{T0})
++\mu_zC_T+\mu_zC_{T0}
 +C_{P0,\mathrm{air}}
 }.
 $
@@ -883,7 +883,7 @@ $
 C_{Pair}
 =
 K_{\mathrm{ind}}\lambda_iC_T
-+\mu_z(C_T+C_{T0})
++\mu_zC_T+\mu_zC_{T0}
 +C_{P0,\mathrm{air}}
 },
 $
@@ -894,7 +894,7 @@ $
 C_{P0,\mathrm{air}}=C_{Q0}+\mu C_{H0}-\mu_zC_{T0}.
 $
 
-For $\mu_z>0$ (climb in the zBET convention), the axial-work term is $+\mu_z(C_T+C_{T0})$. The $C_{T0}$ part exists only inside the $C_{Pair}$ energy bookkeeping and cancels the $-\mu_zC_{T0}$ contained in $C_{P0,\mathrm{air}}$.
+For $\mu_z>0$ (climb in the zBET convention), the axial-work term is $+\mu_zC_T+\mu_zC_{T0}$. The $C_{T0}$ part exists only inside the $C_{Pair}$ energy bookkeeping and cancels the $-\mu_zC_{T0}$ contained in $C_{P0,\mathrm{air}}$.
 
 
 ### 7.3 Effective rotor lift-to-drag ratio

@@ -207,7 +207,8 @@ def test_numerical_vectorial_computes_ct0_and_cpair_by_both_routes():
     cp0_air = result["CQ0"] + mu * result["CH0"] - mu_z * result["CT0"]
     expected_energy = (
         K_IND * result["lambda_i"] * result["CT"]
-        + mu_z * (result["CT"] + result["CT0"])
+        + mu_z * result["CT"]
+        + mu_z * result["CT0"]
         + cp0_air
     )
     assert result["CPair"] == pytest.approx(expected_energy, rel=1e-12)
