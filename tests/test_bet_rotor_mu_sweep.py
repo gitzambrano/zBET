@@ -279,7 +279,8 @@ def test_energy_balance_cqi_is_shaft_torque_not_power():
     """Verifies that energy-balance CQi excludes translational work mu*CHi."""
     mu, mu_z = 0.3, 0.03
     result = coefficients(mu, mu_z, 0.12, GEOM, "uniform")
-    power_form = K_IND * result["lambda_i"] * result["CT"] + mu_z * result["CT"]
+    ct_lift = result["CT"] - result["CT0"]
+    power_form = K_IND * result["lambda_i"] * ct_lift + mu_z * ct_lift
     assert result["CQi"] == pytest.approx(power_form - mu * result["CHi"])
     assert result["CQi"] < power_form
 
