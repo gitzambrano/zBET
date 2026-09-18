@@ -925,7 +925,7 @@ def coefficients(
     # energy-balance torque closure. Equivalently:
     # CPair = CQ + mu*CH.
     # Equivalent energy-balance form:
-    # CPair = K_IND*lambda_i*CT + mu_z*(CT + CT0) + CP0_air,
+    # CPair = K_IND*lambda_i*CT + mu_z*CT + mu_z*CT0 + CP0_air,
     # where CP0_shaft = CQ0 and
     # CP0_air = CQ0 + mu*CH0 - mu_z*CT0.
     # CT0 is used only in this air-power bookkeeping, never in CT.
