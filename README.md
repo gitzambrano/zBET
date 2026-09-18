@@ -6,39 +6,29 @@ For the equations, assumptions, implementation mapping, and literature cross-che
 
 ---
 
-## Aerodynamic Model Selectors
+## Aerodynamic Method
 
-zBET uses **two independent and explicit selectors**:
+zBET uses fixed aerodynamic paths rather than selectable torque/power closures:
 
-- `PROFILE_DRAG_MODEL`
-  - `"analytical_tangential"`: classical tangential-only closed-form BET profile drag.
-  - `"analytical_vectorial"`: low-order closed-form vector profile drag, including radial-flow effects and leading axial profile drag.
-  - `"numerical_vectorial"`: radial × azimuthal Gauss-Legendre integration of the profile-drag vector, including (C_{T0}).
-- `INDUCED_TORQUE_MODEL`
-  - `"analytical_bet"`: direct analytical BET induced torque.
-  - `"energy_balance"`: induced shaft torque from the energy-balance closure with `K_IND`.
+- $C_{Qi}$ is obtained from the BET torque expression.
+- $C_{Q0}$ and $C_{H0}$ are obtained from direct vectorial radial × azimuthal integration of profile drag.
+- $C_Q=C_{Qi}+C_{Q0}$.
+- `CPair` is computed separately from an energy balance.
 
-The default configuration is:
+The tangential-only profile formulas are retained in the theory documentation only as a comparison showing what is lost when radial velocity is omitted. They are not used by the solver.
 
-```python
-PROFILE_DRAG_MODEL = "numerical_vectorial"
-INDUCED_TORQUE_MODEL = "energy_balance"
-```
-
-The principal lift-induced loads remain analytical in both selector families:
+The principal loads are:
 
 | Quantity | Formulation |
 | --- | --- |
-| $C_T$ | Analytical lift contribution plus $C_{T0}$ from vectorial profile models |
+| $C_T$ | Analytical weighted-moment BET |
 | $C_{Hi}$, $C_Y$ | Analytical weighted-moment BET |
 | $C_{Mx}$, $C_{My}$ | Analytical weighted-moment BET |
-| $C_{T0}$, $C_{H0}$, $C_{Q0}$ | Selected by `PROFILE_DRAG_MODEL` |
-| $C_{Qi}$ | Selected by `INDUCED_TORQUE_MODEL` |
+| $C_{H0}$, $C_{Q0}$ | Direct vectorial profile-drag quadrature |
+| $C_{Qi}$ | Direct BET torque expression |
 | $C_Q$ | $C_{Qi}+C_{Q0}$ |
+| $C_{Pair}$ | Energy balance |
 
-The selectors are deliberately named after the physics they implement. zBET does not expose a generic “simple/complete” switch.
-
-A fully integrated force-balance solver would evaluate the same local aerodynamic state consistently for all force and moment channels over radius and azimuth. zBET is intentionally lighter than that: its design target is fast, transparent conceptual analysis.
 
 ---
 
@@ -49,7 +39,7 @@ zBET does not solve a separate local momentum balance at every annulus. Instead,
 1. evaluates blade-element loads using analytical radial moments;
 2. solves one global momentum-theory equation for mean induced velocity;
 3. applies optional first-harmonic inflow gradients; and
-4. uses numerical quadrature only where explicitly selected for profile drag.
+4. uses direct vectorial numerical quadrature for profile drag.
 
 This keeps execution fast while preserving the main physics needed for conceptual rotor studies.
 
@@ -98,8 +88,9 @@ This keeps execution fast while preserving the main physics needed for conceptua
   - Fixed or Sissingh-style effective tip-loss radius
   - Optional Prandtl-Glauert lift-slope correction
 - **Outputs**
-  - $C_T,C_{T0},C_Q,C_{Qi},C_{Q0},C_H,C_{Hi},C_{H0},C_Y,C_{Mx},C_{My}$
-  - $C_{P,\mathrm{air}}=C_Q+\mu C_H-\mu_z C_T$
+  - $C_T,C_Q,C_{Qi},C_{Q0},C_H,C_{Hi},C_{H0},C_Y,C_{Mx},C_{My}$
+  - $C_{Pair}=\lambda_iC_T+\mu_zC_T+\mu C_{Hi}+C_{P0,\mathrm{air}}$
+  - $C_{P0,\mathrm{air}}=C_{Q0}+\mu C_{H0}$
   - Effective rotor $L/D$
   - Hover figure of merit
   - Dimensional thrust and power
