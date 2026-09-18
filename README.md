@@ -11,8 +11,9 @@ For the equations, assumptions, implementation mapping, and literature cross-che
 zBET uses **two independent and explicit selectors**:
 
 - `PROFILE_DRAG_MODEL`
-  - `"analytical_bet"`: closed-form BET profile force and torque.
-  - `"numerical_profile"`: radial × azimuthal Gauss-Legendre profile-drag quadrature.
+  - `"analytical_tangential"`: classical tangential-only closed-form BET profile drag.
+  - `"analytical_vectorial"`: low-order closed-form vector profile drag, including radial-flow effects and leading axial profile drag.
+  - `"numerical_vectorial"`: radial × azimuthal Gauss-Legendre integration of the profile-drag vector, including (C_{T0}).
 - `INDUCED_TORQUE_MODEL`
   - `"analytical_bet"`: direct analytical BET induced torque.
   - `"energy_balance"`: induced shaft torque from the energy-balance closure with `K_IND`.
@@ -20,7 +21,7 @@ zBET uses **two independent and explicit selectors**:
 The default configuration is:
 
 ```python
-PROFILE_DRAG_MODEL = "numerical_profile"
+PROFILE_DRAG_MODEL = "numerical_vectorial"
 INDUCED_TORQUE_MODEL = "energy_balance"
 ```
 
@@ -28,10 +29,10 @@ The principal lift-induced loads remain analytical in both selector families:
 
 | Quantity | Formulation |
 | --- | --- |
-| $C_T$ | Analytical weighted-moment BET |
+| $C_T$ | Analytical lift contribution plus $C_{T0}$ from vectorial profile models |
 | $C_{Hi}$, $C_Y$ | Analytical weighted-moment BET |
 | $C_{Mx}$, $C_{My}$ | Analytical weighted-moment BET |
-| $C_{H0}$, $C_{Q0}$ | Selected by `PROFILE_DRAG_MODEL` |
+| $C_{T0}$, $C_{H0}$, $C_{Q0}$ | Selected by `PROFILE_DRAG_MODEL` |
 | $C_{Qi}$ | Selected by `INDUCED_TORQUE_MODEL` |
 | $C_Q$ | $C_{Qi}+C_{Q0}$ |
 
@@ -97,8 +98,8 @@ This keeps execution fast while preserving the main physics needed for conceptua
   - Fixed or Sissingh-style effective tip-loss radius
   - Optional Prandtl-Glauert lift-slope correction
 - **Outputs**
-  - $C_T,C_Q,C_{Qi},C_{Q0},C_H,C_{Hi},C_{H0},C_Y,C_{Mx},C_{My}$
-  - $C_{P,\mathrm{air}}=C_Q+\mu C_H$
+  - $C_T,C_{T0},C_Q,C_{Qi},C_{Q0},C_H,C_{Hi},C_{H0},C_Y,C_{Mx},C_{My}$
+  - $C_{P,\mathrm{air}}=C_Q+\mu C_H-\mu_z C_T$
   - Effective rotor $L/D$
   - Hover figure of merit
   - Dimensional thrust and power
