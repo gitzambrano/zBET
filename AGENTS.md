@@ -12,7 +12,7 @@
 
 ## Developer & Agent Guidelines
 1. **Language**: All code comments, docstrings, terminal messages, and documentation must be written in **English**.
-2. **Methodology**: Maintain the fast analytical BET architecture (closed-form weighted moments and global inflow gradient models) without introducing heavy iterative multi-annulus loops. Compute `CQi` from the BET torque expression and compute `CQ0`/`CH0` from direct vectorial profile-drag integration. Do not infer torque from a power balance. Compute `CPair` separately from the energy balance, with `CP0_air = CQ0 + mu*CH0`. Tangential-only profile formulas are documentation references only and must not be used by the solver.
+2. **Methodology**: Maintain the fast analytical BET architecture (closed-form weighted moments and global inflow gradient models) without introducing heavy iterative multi-annulus loops. Preserve the explicit selectors `INDUCED_TORQUE_MODEL` (`analytical_bet` or `energy_balance`) and `PROFILE_DRAG_MODEL` (`analytical_tangential`, `analytical_vectorial`, or `numerical_vectorial`). In direct BET torque mode, do not insert `K_IND` into the torque integral. In energy-balance torque mode, use `K_IND`. Always compute `CPair` from the energy balance with `K_IND`, and compute hover FoM with `K_IND`. Keep `CP0_air = CQ0 + mu*CH0`.
 3. **Testing**: Always run the full `pytest` suite before proposing or merging behavioral changes. Do not hard-code the collected test count in documentation.
 4. **Execution**: Run `python zBET.py` to execute the forward flight sweep and generate outputs locally.
 5. **Outputs**: Generated plots and CSV files belong in `outputs/` and must never be committed to version control.
