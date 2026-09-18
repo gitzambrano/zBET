@@ -68,11 +68,12 @@ TIP_LOSS_MODE = "none"
 TIP_LOSS_B = 0.97           # Tip loss factor B [-] (used if TIP_LOSS_MODE = "fixed")
 USE_PRANDTL_GLAUERT = False # Subsonic compressibility correction on lift curve slope (True | False)
 
-# --- 6. Inflow Models ----------------------------------------------------------
+# --- 6. Inflow Models & Induced Power ----------------------------------------
 # Available models: "uniform", "coleman_simple", "coleman_feingold", "drees"
 INFLOW_MODELS = ["uniform", "coleman_simple", "coleman_feingold", "drees"]
 FX_COLEMAN = 1.0            # Longitudinal inflow gradient scale factor [-]
 FY_COLEMAN = 1.0            # Lateral inflow gradient scale factor [-] (set 0.0 to disable lateral inflow)
+K_IND = 1.15                # Induced-power factor [-], used by energy-balance power/torque and FoM
 
 # --- 7. Operating Sweep & Output ---------------------------------------------
 MU_MIN = 0.0                # Minimum advance ratio [-]
@@ -84,10 +85,16 @@ MU_STEP = 0.05              # Advance ratio step size [-]
 AXIAL_FLOW = "alpha"
 AXIAL_VALUES = [0.0, -4.0, 4.0]  # Values corresponding to AXIAL_FLOW mode
 
-# Torque model:
-# - CQi is always obtained from the BET torque integral.
-# - CQ0 and CH0 are always obtained by vectorial radial/azimuthal integration.
-# Tangential profile formulas are reference approximations only; they are not used.
+# Aerodynamic model selectors.
+# Induced shaft torque:
+#   "analytical_bet" -> direct BET torque integral
+#   "energy_balance" -> infer CQi from the energy balance using K_IND
+# Profile drag:
+#   "analytical_tangential" -> tangential-only closed-form profile drag
+#   "analytical_vectorial"  -> low-order vectorial closed-form profile drag
+#   "numerical_vectorial"   -> radial/azimuthal vector profile-drag quadrature
+INDUCED_TORQUE_MODEL = "energy_balance"
+PROFILE_DRAG_MODEL = "numerical_vectorial"
 
 OUTPUT_DIR = Path("outputs") # Directory for CSV and plot outputs
 # =============================================================================
@@ -774,14 +781,37 @@ def induced_torque_coefficient(mu, lam, lambda_1c, lambda_1s, pitch, geometry, a
     return float(np.sum(weights * integrand))
 
 
-def profile_drag_coefficients(mu, mu_z, geometry):
-    """Calculates CH0 and CQ0 by direct vectorial profile-drag integration.
+def profile_drag_coefficients(mu, mu_z, geometry, profile_drag_model=PROFILE_DRAG_MODEL):
+    """Calculates CH0 and CQ0 using the selected profile-drag formulation."""
+    # Profile drag exists on the physical blade all the way to x=1, even when
+    # an effective tip-loss radius B<1 is used for lift-induced loading.
+    j = radial_integrals(geometry, b=1.0)
+    s0, s1 = geometry.solidity.linear_coeffs
+    i_mom = {m: s0 * j[m] + s1 * j[m + 1] for m in range(5)}
+    cd0 = geometry.cd0
 
-    The calculation uses radial/azimuthal Gauss-Legendre quadrature of the
-    profile-drag vector with u_T, u_R, imposed axial velocity mu_z, and local
-    solidity sigma(r). The physical blade span x0..1.0 is integrated directly.
-    Tangential-only closed forms are intentionally not used by the solver.
-    """
+    if profile_drag_model == "analytical_tangential":
+        ch0 = cd0 * mu * i_mom[1] / 2.0
+        cq0 = cd0 / 2.0 * (i_mom[3] + 0.5 * mu * mu * i_mom[1])
+        return ch0, cq0
+
+    if profile_drag_model == "analytical_vectorial":
+        # Low-order vector expansion:
+        # <W (x sin psi + mu)> = (3/2) mu x + O(mu^3)
+        # <W u_T x> = x^3 + (3/4 mu^2 + 1/2 mu_z^2) x + O(4)
+        ch0 = 0.75 * cd0 * mu * i_mom[1]
+        cq0 = 0.5 * cd0 * (
+            i_mom[3] + (0.75 * mu * mu + 0.5 * mu_z * mu_z) * i_mom[1]
+        )
+        return ch0, cq0
+
+    if profile_drag_model != "numerical_vectorial":
+        raise ValueError(
+            "profile_drag_model must be 'analytical_tangential', "
+            "'analytical_vectorial', or 'numerical_vectorial'"
+        )
+
+    # 2D Gauss-Legendre quadrature (radial and azimuthal).
     xr, wr = _gauss_nodes(48)
     xp, wp = _gauss_nodes(96)
     r0 = geometry.root_cutout
@@ -797,9 +827,7 @@ def profile_drag_coefficients(mu, mu_z, geometry):
     total_speed = np.sqrt(u_t * u_t + u_r * u_r + mu_z * mu_z)
 
     sigma_r = geometry.solidity.sigma(rr)
-    factor = sigma_r * geometry.cd0 / 2.0
-
-    # Direct vectorial force/torque integrals.
+    factor = sigma_r * cd0 / 2.0
     ch0 = np.sum(weights * factor * total_speed * (rr * np.sin(pp) + mu))
     cq0 = np.sum(weights * factor * total_speed * u_t * rr)
     return float(ch0), float(cq0)
@@ -811,15 +839,18 @@ def coefficients(
     pitch_input,
     geometry,
     model,
+    profile_drag_model=PROFILE_DRAG_MODEL,
+    induced_torque_model=INDUCED_TORQUE_MODEL,
+    k_ind=K_IND,
     fx=FX_COLEMAN,
     fy=FY_COLEMAN,
 ):
-    """Calculates rotor coefficients using direct BET force/torque integrals.
+    """Calculates rotor coefficients using selectable torque/profile closures.
 
-    CT, CHi, CQi, CY, CMx, and CMy come from the lift-force BET formulation.
-    CH0 and CQ0 come from direct vectorial profile-drag integration. CPair is
-    evaluated separately from an energy balance; torque is never inferred from
-    power.
+    CT, CHi, CY, CMx, and CMy come from BET. PROFILE_DRAG_MODEL selects
+    tangential, low-order vectorial, or numerical-vectorial CH0/CQ0.
+    INDUCED_TORQUE_MODEL selects direct BET torque or an energy-balance CQi.
+    CPair is always evaluated from the energy balance using K_IND.
     """
     if isinstance(pitch_input, (int, float)):
         pitch = BladePitch(
@@ -843,15 +874,25 @@ def coefficients(
     lambda_1s = ky * lambda_i
 
     ct = ct_bet(mu, lam, lambda_1s, (j, i_mom, t_mom), geometry, a=a)
-    ch0, cq0 = profile_drag_coefficients(mu, mu_z, geometry)
+    ch0, cq0 = profile_drag_coefficients(mu, mu_z, geometry, profile_drag_model)
 
     # Induced longitudinal H-force CHi:
     chi = 0.25 * a * (lam * mu * t_mom[0] + lambda_1s * (t_mom[2] - 2.0 * lam * i_mom[1]))
 
-    # Induced shaft torque from the direct BET torque integral.
-    cqi = induced_torque_coefficient(
+    # Direct BET induced shaft torque.
+    cqi_bet = induced_torque_coefficient(
         mu, lam, lambda_1c, lambda_1s, pitch, geometry, a
     )
+
+    if induced_torque_model == "energy_balance":
+        if k_ind <= 0.0:
+            raise ValueError("K_IND must be positive")
+        # Reverse the energy balance to obtain shaft torque.
+        cqi = k_ind * lambda_i * ct + mu_z * ct - mu * chi
+    elif induced_torque_model == "analytical_bet":
+        cqi = cqi_bet
+    else:
+        raise ValueError("induced_torque_model must be 'analytical_bet' or 'energy_balance'")
 
     # Side force CY (lateral projection of normal force):
     cy = -0.25 * a * lambda_1c * (t_mom[2] - 2.0 * lam * i_mom[1])
@@ -865,15 +906,14 @@ def coefficients(
     cq_total = cqi + cq0
     ch_total = chi + ch0
 
-    # 1. Figure of Merit (FoM) in hover: FoM = CT^(3/2) / (sqrt(2) * CQ)
-    fom = (ct ** 1.5) / (math.sqrt(2.0) * cq_total) if (ct > 0 and cq_total > 0) else 0.0
+    # 1. Figure of Merit from the hover energy balance.
+    ideal_hover_power = (ct ** 1.5) / math.sqrt(2.0) if ct > 0.0 else 0.0
+    cp_fom = k_ind * ideal_hover_power + cq0
+    fom = ideal_hover_power / cp_fom if cp_fom > 0.0 else 0.0
 
-    # 2. Air power from an energy balance.
-    # Profile air power contains the profile torque plus its translational work.
+    # 2. Air power from the energy balance.
     cp0_air = cq0 + mu * ch0
-    # The translational term outside CP0_air is the lift-induced H-force part;
-    # using total CH here would count mu*CH0 twice.
-    cp_air = lambda_i * ct + mu_z * ct + mu * chi + cp0_air
+    cp_air = k_ind * lambda_i * ct + mu_z * ct + mu * chi + cp0_air
 
     # 3. Effective rotor L/D ratio in forward flight: (L/D)_eff = mu * CT / CPair
     l_d_eff = (mu * ct / cp_air) if (mu > 1e-6 and cp_air > 1e-12) else 0.0
@@ -912,6 +952,9 @@ def run_sweep(
     axial_values,
     pitch,
     inflow_models=INFLOW_MODELS,
+    profile_drag_model=PROFILE_DRAG_MODEL,
+    induced_torque_model=INDUCED_TORQUE_MODEL,
+    k_ind=K_IND,
     fx=FX_COLEMAN,
     fy=FY_COLEMAN,
 ):
@@ -951,6 +994,9 @@ def run_sweep(
                     "B_tip_loss": geometry.b_factor(),
                     "lift_slope_a": geometry.lift_slope(mu),
                     "Mach_tip": geometry.tip_mach,
+                    "profile_drag_model": profile_drag_model,
+                    "induced_torque_model": induced_torque_model,
+                    "K_ind": k_ind,
                 }
                 res = coefficients(
                     mu,
@@ -958,6 +1004,9 @@ def run_sweep(
                     pitch,
                     geometry,
                     model,
+                    profile_drag_model=profile_drag_model,
+                    induced_torque_model=induced_torque_model,
+                    k_ind=k_ind,
                     fx=fx,
                     fy=fy,
                 )
@@ -998,7 +1047,7 @@ def plot_results(df, output_dir, models_to_plot=None):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     display_names = {
-        "CPair": "C_Pair (Energy Balance)",
+        "CPair": "C_Pair (Energy Balance, K_ind)",
         "lambda": "λ (Total Mean Inflow)",
         "lambda_i": "λ_i (Induced Mean Inflow)",
         "L_D_eff": "(L/D)_eff (Effective Rotor L/D Ratio)",
@@ -1054,6 +1103,9 @@ def main():
         AXIAL_VALUES,
         pitch,
         inflow_models=INFLOW_MODELS,
+        profile_drag_model=PROFILE_DRAG_MODEL,
+        induced_torque_model=INDUCED_TORQUE_MODEL,
+        k_ind=K_IND,
         fx=FX_COLEMAN,
         fy=FY_COLEMAN,
     )
