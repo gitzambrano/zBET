@@ -29,7 +29,7 @@ zBET exposes two independent selectors.
 **Induced shaft torque**
 
 - `analytical_bet`: compute $C_{Qi}$ from the direct BET torque integral;
-- `energy_balance`: infer $C_{Qi}$ by reversing the energy balance,
+- `energy_balance`: infer $C_{Qi}$ by reversing the energy balance; the direct induced-torque integral is not evaluated in this mode,
 
 $$
 \boxed{
@@ -695,7 +695,7 @@ $C_Q$ always remains $C_{Qi}+C_{Q0}$. Which expression supplies $C_{Qi}$ and $C_
 
 ### 6.6 Scope of the mixed analytical/numerical formulation
 
-Lift-induced loads remain analytical weighted-moment expressions, while $C_{H0}$ and $C_{Q0}$ use direct vectorial quadrature.
+Lift-induced loads remain analytical weighted-moment expressions. The profile quantities $C_{H0}$ and $C_{Q0}$ use the formulation selected by `PROFILE_DRAG_MODEL`: tangential analytical, vectorial analytical, or numerical vectorial.
 
 ---
 
@@ -717,43 +717,25 @@ No $\mu C_H$ term belongs to shaft power: $C_Q$ is the mechanical torque coeffic
 
 ### 7.2 Air power (`CPair`)
 
-Power is introduced here, after the torque calculation.
+`CPair` is always evaluated from the energy balance, independently of the selected induced-torque mode.
 
-For uniform induced velocity,
+The induced-power contribution is
 
 $$
-C_{Pi}=K_{\mathrm{ind}}\lambda_iC_T.
+\boxed{
+C_{Pi}=K_{\mathrm{ind}}\lambda_iC_T
+}.
 $$
 
 The climb contribution is
 
 $$
-C_{Pc}=\mu_zC_T.
-$$
-
-The in-plane translational contribution associated with the lift-generated longitudinal force is
-
-$$
-C_{P,\mathrm{trans}}=\mu C_{Hi}.
-$$
-
-Keeping profile power unexpanded first,
-
-$$
 \boxed{
-C_{Pair}
-=
-K_{\mathrm{ind}}\lambda_iC_T
-+
-\mu_zC_T
-+
-\mu C_{Hi}
-+
-C_{P0,\mathrm{air}}
+C_{Pc}=\mu_zC_T
 }.
 $$
 
-Now expand the profile term:
+The profile-drag contribution relative to the air is
 
 $$
 \boxed{
@@ -771,7 +753,19 @@ K_{\mathrm{ind}}\lambda_iC_T
 +
 \mu_zC_T
 +
-\mu C_{Hi}
+C_{P0,\mathrm{air}}
+}
+$$
+
+or, after expanding the profile term,
+
+$$
+\boxed{
+C_{Pair}
+=
+K_{\mathrm{ind}}\lambda_iC_T
++
+\mu_zC_T
 +
 C_{Q0}
 +
@@ -779,21 +773,37 @@ C_{Q0}
 }.
 $$
 
-Since $C_H=C_{Hi}+C_{H0}$,
+There is no additional $+\mu C_{Hi}$ term in this expression. In the `energy_balance` torque mode,
 
 $$
-C_{Pair}
+C_{Qi}^{\mathrm{EB}}
 =
 K_{\mathrm{ind}}\lambda_iC_T
 +
 \mu_zC_T
-+
-\mu C_H
-+
-C_{Q0}.
+-
+\mu C_{Hi},
 $$
 
-For a rectangular blade in edgewise flight,
+so
+
+$$
+C_{Qi}^{\mathrm{EB}}+\mu C_{Hi}
+=
+K_{\mathrm{ind}}\lambda_iC_T+\mu_zC_T.
+$$
+
+Consequently, when `INDUCED_TORQUE_MODEL = "energy_balance"`,
+
+$$
+\boxed{
+C_{Pair}=C_Q+\mu C_H
+}
+$$
+
+because $C_Q=C_{Qi}+C_{Q0}$ and $C_H=C_{Hi}+C_{H0}$. This identity is a consistency check of the energy-balance mode. When `analytical_bet` is selected, $C_Q$ comes from the direct BET torque route while `CPair` remains the energy-balance estimate, so the two routes are intentionally independent and need not be identical.
+
+For a rectangular blade in edgewise flight, the low-order vectorial profile terms are
 
 $$
 C_{Q0}\simeq\frac{\sigma C_{d0}}8(1+1.5\mu^2),
@@ -824,6 +834,7 @@ C_{P0,\mathrm{air}}
 $$
 
 The $4.5\mu^2$ factor belongs to profile power relative to the air, not to $C_{Q0}$.
+
 ### 7.3 Effective rotor lift-to-drag ratio
 
 For $\mu>0$,
