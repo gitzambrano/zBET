@@ -376,7 +376,7 @@ def test_csv_is_named_zbet_and_separate_model_csvs(tmp_path):
         assert "K_ind" in m_df.columns
         assert (m_df["profile_drag_model"] == PROFILE_DRAG_MODEL).all()
         assert (m_df["induced_torque_model"] == INDUCED_TORQUE_MODEL).all()
-        assert (m_df["K_ind"] == pytest.approx(K_IND)).all()
+        assert np.allclose(m_df["K_ind"].to_numpy(), K_IND)
 
     assert (tmp_path / "zBET_coleman.csv").is_file()
 
