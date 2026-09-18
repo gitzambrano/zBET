@@ -151,7 +151,7 @@ def test_figure_of_merit_and_lift_to_drag_ratio():
     # Forward flight (mu = 0.3):
     fwd = coefficients(0.3, 0.0, 0.12, GEOM, "coleman_feingold")
     assert fwd["CPair"] == pytest.approx(
-        fwd["CQ"] + 0.3 * fwd["CH"] - 0.0 * fwd["CT"], rel=1e-12
+        fwd["CQ"] + 0.3 * fwd["CH"], rel=1e-12
     )
     expected_ld = 0.3 * fwd["CT"] / fwd["CPair"]
     assert fwd["L_D_eff"] == pytest.approx(expected_ld, rel=1e-12)
@@ -188,8 +188,8 @@ def test_profile_drag_vectorial_low_order_matches_classical_factors():
     )
 
 
-def test_numerical_vectorial_computes_ct0_and_air_power_identity():
-    """Checks normal profile drag and the complete translational-work bookkeeping."""
+def test_numerical_vectorial_computes_ct0_and_cpair_by_both_routes():
+    """Checks CT0 and the equivalent torque- and energy-balance forms of CPair."""
     mu, mu_z = 0.3, 0.03
     result = coefficients(
         mu, mu_z, 0.12, GEOM, "uniform",
@@ -197,9 +197,21 @@ def test_numerical_vectorial_computes_ct0_and_air_power_identity():
         induced_torque_model="energy_balance",
     )
     assert result["CT0"] < 0.0
+
+    # Route 1: shaft torque plus in-plane translational work.
     assert result["CPair"] == pytest.approx(
-        result["CQ"] + mu * result["CH"] - mu_z * result["CT"], rel=1e-12
+        result["CQ"] + mu * result["CH"], rel=1e-12
     )
+
+    # Route 2: induced wake power + climb power + profile power.
+    ct_lift = result["CT"] - result["CT0"]
+    cp0_air = result["CQ0"] + mu * result["CH0"] - mu_z * result["CT0"]
+    expected_energy = (
+        K_IND * result["lambda_i"] * ct_lift
+        + mu_z * result["CT"]
+        + cp0_air
+    )
+    assert result["CPair"] == pytest.approx(expected_energy, rel=1e-12)
 
     descending = coefficients(
         mu, -mu_z, 0.12, GEOM, "uniform",

@@ -919,9 +919,12 @@ def coefficients(
     fom = (ct ** 1.5) / (math.sqrt(2.0) * cq_total) if (ct > 0 and cq_total > 0) else 0.0
 
     # 2. Aerodynamic power relative to the undisturbed air.
-    # Shaft power is CQ. Translational work adds +mu*CH and, for axial motion,
-    # -mu_z*CT. In edgewise flight this reduces to CPair = CQ + mu*CH.
-    cp_air = cq_total + mu * ch_total - mu_z * ct
+    # Shaft power is CQ. CPair adds the in-plane translational work mu*CH.
+    # The climb contribution +mu_z*CT is already embedded in CQ through the
+    # energy-balance torque closure. Equivalently:
+    # CPair = K_IND*lambda_i*CT_lift + mu_z*CT + CP0_air,
+    # where CP0_air = CQ0 + mu*CH0 - mu_z*CT0.
+    cp_air = cq_total + mu * ch_total
 
     # 3. Effective rotor L/D ratio in forward flight: (L/D)_eff = mu * CT / CPair
     l_d_eff = (mu * ct / cp_air) if (mu > 1e-6 and cp_air > 1e-12) else 0.0
@@ -1056,7 +1059,7 @@ def plot_results(df, output_dir, models_to_plot=None):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     display_names = {
-        "CPair": "C_Pair (Air Power: CQ + μ·CH - μ_z·CT)",
+        "CPair": "C_Pair (Air Power: CQ + μ·CH)",
         "lambda": "λ (Total Mean Inflow)",
         "lambda_i": "λ_i (Induced Mean Inflow)",
         "L_D_eff": "(L/D)_eff (Effective Rotor L/D Ratio)",
