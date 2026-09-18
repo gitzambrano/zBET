@@ -88,8 +88,9 @@ This keeps execution fast while preserving the main physics needed for conceptua
   - Fixed or Sissingh-style effective tip-loss radius
   - Optional Prandtl-Glauert lift-slope correction
 - **Outputs**
-  - $C_T,C_{T0},C_Q,C_{Qi},C_{Q0},C_H,C_{Hi},C_{H0},C_Y,C_{Mx},C_{My}$
-  - $C_{P,\mathrm{air}}=C_Q+\mu C_H-\mu_z C_T$
+  - $C_T,C_Q,C_{Qi},C_{Q0},C_H,C_{Hi},C_{H0},C_Y,C_{Mx},C_{My}$
+  - $C_{Pair}=\lambda_iC_T+\mu_zC_T+\mu C_{Hi}+C_{P0,\mathrm{air}}$
+  - $C_{P0,\mathrm{air}}=C_{Q0}+\mu C_{H0}$
   - Effective rotor $L/D$
   - Hover figure of merit
   - Dimensional thrust and power
