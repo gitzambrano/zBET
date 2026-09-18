@@ -37,7 +37,7 @@ PROFILE_DRAG_MODEL = "numerical_vectorial"
 INDUCED_TORQUE_MODEL = "energy_balance"
 ```
 
-These selectors are intentionally independent. The lift-generated normal load, $C_{Hi}$, $C_Y$, $C_{Mx}$, and $C_{My}$ use the analytical weighted-moment formulation. The profile selector supplies $C_{T0}$, $C_{H0}$, and $C_{Q0}$; the reported total normal coefficient is $C_T=C_{T,\mathrm{lift}}+C_{T0}$. The mean-inflow closure and induced-power bookkeeping continue to use the lift-generated $C_{T,\mathrm{lift}}$, so profile drag is not double-counted as induced power.
+These selectors are intentionally independent. zBET uses one normal-force coefficient, $C_T$. The profile selector also supplies the profile-drag component $C_{T0}$ together with $C_{H0}$ and $C_{Q0}$. Whenever the non-profile normal loading is required, it is written algebraically as $C_T-C_{T0}$; no second thrust coefficient is defined.
 
 There is no generic “simple” or “complete” aerodynamic mode.
 
@@ -678,13 +678,7 @@ With `PROFILE_DRAG_MODEL = "numerical_vectorial"`, zBET evaluates the three vect
 
 The numerical model still uses the imposed axial component $\mu_z$ in the profile-drag kinematics rather than the local induced normal velocity. It is therefore a vectorial **profile-drag** model, not a full nonlinear section-force solver.
 
-The total reported normal coefficient is
-
-$$
-C_T=C_{T,\mathrm{lift}}+C_{T0}.
-$$
-
-The mean-inflow solve and induced-power model use $C_{T,\mathrm{lift}}$ so that the viscous profile contribution is not counted as induced loading.
+The reported normal-force coefficient is simply $C_T$. The profile model additionally exposes $C_{T0}$ as a component. The mean-inflow solve and induced-power bookkeeping use $C_T-C_{T0}$ whenever the non-profile normal loading is required.
 
 
 ### 6.4 Induced shaft-torque models
@@ -770,8 +764,6 @@ Using
 
 $
 C_H=C_{Hi}+C_{H0},
-\qquad
-C_T=C_{T,\mathrm{lift}}+C_{T0},
 $
 
 and `INDUCED_TORQUE_MODEL = "energy_balance"`,
@@ -779,8 +771,8 @@ and `INDUCED_TORQUE_MODEL = "energy_balance"`,
 $
 C_{Qi}
 =
-K_{\mathrm{ind}}\lambda_iC_{T,\mathrm{lift}}
-+\mu_zC_{T,\mathrm{lift}}
+K_{\mathrm{ind}}\lambda_i(C_T-C_{T0})
++\mu_z(C_T-C_{T0})
 -\mu C_{Hi}.
 $
 
@@ -791,8 +783,8 @@ $
 C_{Pair}
 &=C_Q+\mu C_H \\
 &=
-K_{\mathrm{ind}}\lambda_iC_{T,\mathrm{lift}}
-+\mu_zC_{T,\mathrm{lift}}
+K_{\mathrm{ind}}\lambda_i(C_T-C_{T0})
++\mu_z(C_T-C_{T0})
 +C_{Q0}
 +\mu C_{H0}.
 \end{aligned}
@@ -806,13 +798,13 @@ C_{P0,\mathrm{air}}
 C_{Q0}+\mu C_{H0}-\mu_zC_{T0}.
 $
 
-Since $C_T=C_{T,\mathrm{lift}}+C_{T0}$,
+Using $C_T$ and its profile component $C_{T0}$,
 
 $
 \boxed{
 C_{Pair}
 =
-K_{\mathrm{ind}}\lambda_iC_{T,\mathrm{lift}}
+K_{\mathrm{ind}}\lambda_i(C_T-C_{T0})
 +\mu_zC_T
 +C_{P0,\mathrm{air}}
 }.
@@ -824,7 +816,7 @@ $
 \boxed{
 C_Q+\mu C_H
 =
-K_{\mathrm{ind}}\lambda_iC_{T,\mathrm{lift}}
+K_{\mathrm{ind}}\lambda_i(C_T-C_{T0})
 +\mu_zC_T
 +C_{P0,\mathrm{air}}
 }.
@@ -890,7 +882,7 @@ $
 \boxed{
 C_{Pair}
 =
-K_{\mathrm{ind}}\lambda_iC_{T,\mathrm{lift}}
+K_{\mathrm{ind}}\lambda_i(C_T-C_{T0})
 +\mu_zC_T
 +C_{P0,\mathrm{air}}
 },

@@ -204,10 +204,9 @@ def test_numerical_vectorial_computes_ct0_and_cpair_by_both_routes():
     )
 
     # Route 2: induced wake power + climb power + profile power.
-    ct_lift = result["CT"] - result["CT0"]
     cp0_air = result["CQ0"] + mu * result["CH0"] - mu_z * result["CT0"]
     expected_energy = (
-        K_IND * result["lambda_i"] * ct_lift
+        K_IND * result["lambda_i"] * (result["CT"] - result["CT0"])
         + mu_z * result["CT"]
         + cp0_air
     )
@@ -291,8 +290,10 @@ def test_energy_balance_cqi_is_shaft_torque_not_power():
     """Verifies that energy-balance CQi excludes translational work mu*CHi."""
     mu, mu_z = 0.3, 0.03
     result = coefficients(mu, mu_z, 0.12, GEOM, "uniform")
-    ct_lift = result["CT"] - result["CT0"]
-    power_form = K_IND * result["lambda_i"] * ct_lift + mu_z * ct_lift
+    power_form = (
+        K_IND * result["lambda_i"] * (result["CT"] - result["CT0"])
+        + mu_z * (result["CT"] - result["CT0"])
+    )
     assert result["CQi"] == pytest.approx(power_form - mu * result["CHi"])
     assert result["CQi"] < power_form
 

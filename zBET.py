@@ -850,9 +850,10 @@ def coefficients(
 ):
     """Calculates rotor coefficients using zBET's hybrid BET formulation.
 
-    Lift-generated CT, CHi, CY, CMx, and CMy use analytical weighted radial
-    moments. PROFILE_DRAG_MODEL selects tangential analytical, vectorial
-    analytical, or vectorial numerical profile drag for CT0/CH0/CQ0.
+    CT, CHi, CY, CMx, and CMy use analytical weighted radial moments.
+    PROFILE_DRAG_MODEL selects tangential analytical, vectorial analytical,
+    or vectorial numerical profile drag for CT0/CH0/CQ0. CT is the single
+    reported normal-force coefficient; CT0 is its profile-drag contribution.
     INDUCED_TORQUE_MODEL selects direct analytical BET or the energy-balance
     closure for CQi.
     """
@@ -877,9 +878,9 @@ def coefficients(
     lambda_1c = kx * lambda_i
     lambda_1s = ky * lambda_i
 
-    ct_lift = ct_bet(mu, lam, lambda_1s, (j, i_mom, t_mom), geometry, a=a)
+    ct = ct_bet(mu, lam, lambda_1s, (j, i_mom, t_mom), geometry, a=a)
     ct0, ch0, cq0 = profile_drag_coefficients(mu, mu_z, geometry, profile_drag_model)
-    ct = ct_lift + ct0
+    ct += ct0
 
     # Induced longitudinal H-force CHi:
     chi = 0.25 * a * (lam * mu * t_mom[0] + lambda_1s * (t_mom[2] - 2.0 * lam * i_mom[1]))
@@ -894,10 +895,14 @@ def coefficients(
     if induced_torque_model == "energy_balance":
         if k_ind <= 0.0:
             raise ValueError("K_IND must be positive")
-        # Rotor shaft torque energy balance
-        # The energy-balance induced term uses lift-generated CT. Profile CT0
-        # belongs to the profile-drag bookkeeping, not to induced power.
-        cqi = k_ind * lambda_i * ct_lift + mu_z * ct_lift - mu * chi
+        # Rotor shaft torque energy balance.
+        # CT is the single reported normal-force coefficient. The induced-load
+        # part is CT - CT0; no second thrust coefficient is introduced.
+        cqi = (
+            k_ind * lambda_i * (ct - ct0)
+            + mu_z * (ct - ct0)
+            - mu * chi
+        )
     elif induced_torque_model == "analytical_bet":
         cqi = cqi_bet
     else:
@@ -922,7 +927,7 @@ def coefficients(
     # Shaft power is CQ. CPair adds the in-plane translational work mu*CH.
     # The climb contribution +mu_z*CT is already embedded in CQ through the
     # energy-balance torque closure. Equivalently:
-    # CPair = K_IND*lambda_i*CT_lift + mu_z*CT + CP0_air,
+    # CPair = K_IND*lambda_i*(CT - CT0) + mu_z*CT + CP0_air,
     # where CP0_shaft = CQ0 and
     # CP0_air = CQ0 + mu*CH0 - mu_z*CT0.
     cp_air = cq_total + mu * ch_total
