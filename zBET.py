@@ -90,18 +90,20 @@ AXIAL_VALUES = [0.0, -4.0, 4.0]  # Values corresponding to AXIAL_FLOW mode
 #   "analytical_bet" -> direct closed-form BET torque
 #   "energy_balance" -> energy-balance closure with K_IND
 # Profile drag:
-#   "analytical_bet"    -> closed-form BET profile force and torque
-#   "numerical_profile" -> radial/azimuthal Gauss-Legendre profile-drag quadrature
-# CT, CHi, CY, CMx, and CMy always use the analytical weighted-moment formulation.
+#   "analytical_tangential" -> closed-form tangential-only BET profile drag
+#   "analytical_vectorial"  -> low-order closed-form vector profile drag
+#   "numerical_vectorial"   -> radial/azimuthal vector profile-drag quadrature
+# CT from lift, CHi, CY, CMx, and CMy use the analytical weighted-moment formulation.
+# Vectorial profile models also compute CT0, the normal profile-drag contribution.
 INDUCED_TORQUE_MODEL = "energy_balance"
-PROFILE_DRAG_MODEL = "numerical_profile"
+PROFILE_DRAG_MODEL = "numerical_vectorial"
 
 OUTPUT_DIR = Path("outputs") # Directory for CSV and plot outputs
 # =============================================================================
 
 
 OUTPUTS = [
-    "CT", "CQ", "CQi", "CQ0", "CH", "CHi", "CH0", "CY",
+    "CT", "CT0", "CQ", "CQi", "CQ0", "CH", "CHi", "CH0", "CY",
     "CMy", "CMx", "CPair", "lambda", "lambda_i", "L_D_eff",
 ]
 MODELS = ["uniform", "coleman_simple", "coleman_feingold", "drees"]
@@ -761,36 +763,60 @@ def _gauss_nodes(order):
 
 
 def profile_drag_coefficients(mu, mu_z, geometry, profile_drag_model=PROFILE_DRAG_MODEL):
-    """Calculates profile-drag contributions CH0 and CQ0.
+    """Calculates profile-drag contributions CT0, CH0, and CQ0.
 
-    "analytical_bet" uses the closed-form small-angle BET profile expressions.
+    "analytical_tangential" uses the classical tangential-only small-angle BET
+    expressions. It neglects radial and axial profile-drag projections, so CT0=0.
 
-    "numerical_profile" performs radial/azimuthal Gauss-Legendre quadrature
-    of the profile-drag projections using u_T, u_R, imposed axial velocity
-    mu_z, and local solidity sigma(r). It remains a profile-only correction:
-    induced normal velocity is not included in the drag-speed magnitude, and
-    lift-induced loads are evaluated by the analytical weighted-moment model.
+    "analytical_vectorial" retains the leading vector corrections from the local
+    velocity components. It is a low-order expansion: CH0 is first order in mu,
+    CQ0 is second order in mu and mu_z, and CT0 is first order in mu_z.
+
+    "numerical_vectorial" performs radial/azimuthal Gauss-Legendre quadrature
+    of the profile-drag vector using u_T, u_R, imposed axial velocity mu_z,
+    and local solidity sigma(r). It evaluates the Johnson profile-force
+    projections directly and therefore captures reverse-flow sign changes.
+
+    Profile drag is integrated over the physical blade span x0..1.0. The
+    effective tip-loss radius B applies to lift loading, not to blade skin drag.
     """
-    b_val = geometry.b_factor()
-    j = radial_integrals(geometry, b=b_val)
+    # Profile drag exists on the physical blade all the way to x=1, even when
+    # an effective tip-loss radius B<1 is used for lift-induced loading.
+    j = radial_integrals(geometry, b=1.0)
     s0, s1 = geometry.solidity.linear_coeffs
     i_mom = {m: s0 * j[m] + s1 * j[m + 1] for m in range(5)}
     cd0 = geometry.cd0
 
-    if profile_drag_model == "analytical_bet":
+    if profile_drag_model == "analytical_tangential":
+        ct0 = 0.0
         ch0 = cd0 * mu * i_mom[1] / 2.0
         cq0 = cd0 / 2.0 * (i_mom[3] + 0.5 * mu * mu * i_mom[1])
-        return ch0, cq0
+        return ct0, ch0, cq0
 
-    if profile_drag_model != "numerical_profile":
-        raise ValueError("profile_drag_model must be 'analytical_bet' or 'numerical_profile'")
+    if profile_drag_model == "analytical_vectorial":
+        # Low-order expansion of W = sqrt(u_T^2 + u_R^2 + mu_z^2):
+        #   <W (x sin psi + mu)> = (3/2) mu x + O(mu^3)
+        #   <W u_T x> = x^3 + (3/4 mu^2 + 1/2 mu_z^2) x + O(4)
+        #   <W> (-mu_z) = -mu_z x + O(3)
+        ct0 = -0.5 * cd0 * mu_z * i_mom[1]
+        ch0 = 0.75 * cd0 * mu * i_mom[1]
+        cq0 = 0.5 * cd0 * (
+            i_mom[3] + (0.75 * mu * mu + 0.5 * mu_z * mu_z) * i_mom[1]
+        )
+        return ct0, ch0, cq0
 
-    # 2D Gauss-Legendre quadrature (radial and azimuthal)
+    if profile_drag_model != "numerical_vectorial":
+        raise ValueError(
+            "profile_drag_model must be 'analytical_tangential', "
+            "'analytical_vectorial', or 'numerical_vectorial'"
+        )
+
+    # 2D Gauss-Legendre quadrature (radial and azimuthal).
     xr, wr = _gauss_nodes(48)
     xp, wp = _gauss_nodes(96)
     r0 = geometry.root_cutout
-    r = 0.5 * (b_val - r0) * (xr + 1.0) + r0
-    radial_weights = 0.5 * (b_val - r0) * wr
+    r = 0.5 * (1.0 - r0) * (xr + 1.0) + r0
+    radial_weights = 0.5 * (1.0 - r0) * wr
     psi = math.pi * (xp + 1.0)
     azimuth_average_weights = 0.5 * wp
 
@@ -800,12 +826,14 @@ def profile_drag_coefficients(mu, mu_z, geometry, profile_drag_model=PROFILE_DRA
     u_r = mu * np.cos(pp)
     total_speed = np.sqrt(u_t * u_t + u_r * u_r + mu_z * mu_z)
 
-    # Local solidity sigma(r) at radial station
     sigma_r = geometry.solidity.sigma(rr)
     factor = sigma_r * cd0 / 2.0
+
+    # Johnson, Rotorcraft Aeromechanics, Eqs. 6.400-6.402.
+    ct0 = np.sum(weights * factor * total_speed * (-mu_z))
     ch0 = np.sum(weights * factor * total_speed * (rr * np.sin(pp) + mu))
     cq0 = np.sum(weights * factor * total_speed * u_t * rr)
-    return float(ch0), float(cq0)
+    return float(ct0), float(ch0), float(cq0)
 
 
 def coefficients(
@@ -822,10 +850,11 @@ def coefficients(
 ):
     """Calculates rotor coefficients using zBET's hybrid BET formulation.
 
-    CT, CHi, CY, CMx, and CMy use analytical weighted radial moments.
-    PROFILE_DRAG_MODEL selects analytical BET or numerical profile-drag
-    quadrature for CH0/CQ0. INDUCED_TORQUE_MODEL selects direct analytical
-    BET or the energy-balance closure for CQi.
+    Lift-generated CT, CHi, CY, CMx, and CMy use analytical weighted radial
+    moments. PROFILE_DRAG_MODEL selects tangential analytical, vectorial
+    analytical, or vectorial numerical profile drag for CT0/CH0/CQ0.
+    INDUCED_TORQUE_MODEL selects direct analytical BET or the energy-balance
+    closure for CQi.
     """
     if isinstance(pitch_input, (int, float)):
         pitch = BladePitch(
@@ -848,8 +877,9 @@ def coefficients(
     lambda_1c = kx * lambda_i
     lambda_1s = ky * lambda_i
 
-    ct = ct_bet(mu, lam, lambda_1s, (j, i_mom, t_mom), geometry, a=a)
-    ch0, cq0 = profile_drag_coefficients(mu, mu_z, geometry, profile_drag_model)
+    ct_lift = ct_bet(mu, lam, lambda_1s, (j, i_mom, t_mom), geometry, a=a)
+    ct0, ch0, cq0 = profile_drag_coefficients(mu, mu_z, geometry, profile_drag_model)
+    ct = ct_lift + ct0
 
     # Induced longitudinal H-force CHi:
     chi = 0.25 * a * (lam * mu * t_mom[0] + lambda_1s * (t_mom[2] - 2.0 * lam * i_mom[1]))
@@ -865,7 +895,9 @@ def coefficients(
         if k_ind <= 0.0:
             raise ValueError("K_IND must be positive")
         # Rotor shaft torque energy balance
-        cqi = k_ind * lambda_i * ct + mu_z * ct - mu * chi
+        # The energy-balance induced term uses lift-generated CT. Profile CT0
+        # belongs to the profile-drag bookkeeping, not to induced power.
+        cqi = k_ind * lambda_i * ct_lift + mu_z * ct_lift - mu * chi
     elif induced_torque_model == "analytical_bet":
         cqi = cqi_bet
     else:
@@ -886,8 +918,10 @@ def coefficients(
     # 1. Figure of Merit (FoM) in hover: FoM = CT^(3/2) / (sqrt(2) * CQ)
     fom = (ct ** 1.5) / (math.sqrt(2.0) * cq_total) if (ct > 0 and cq_total > 0) else 0.0
 
-    # 2. Total aerodynamic power against the air: CPair = CQ + mu * CH
-    cp_air = cq_total + mu * ch_total
+    # 2. Aerodynamic power relative to the undisturbed air.
+    # Shaft power is CQ. Translational work adds +mu*CH and, for axial motion,
+    # -mu_z*CT. In edgewise flight this reduces to CPair = CQ + mu*CH.
+    cp_air = cq_total + mu * ch_total - mu_z * ct
 
     # 3. Effective rotor L/D ratio in forward flight: (L/D)_eff = mu * CT / CPair
     l_d_eff = (mu * ct / cp_air) if (mu > 1e-6 and cp_air > 1e-12) else 0.0
@@ -899,6 +933,7 @@ def coefficients(
 
     return {
         "CT": ct,
+        "CT0": ct0,
         "CQ": cq_total,
         "CQi": cqi,
         "CQ0": cq0,
@@ -1021,7 +1056,7 @@ def plot_results(df, output_dir, models_to_plot=None):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     display_names = {
-        "CPair": "C_Pair (Total Air Power: CQ + μ·CH)",
+        "CPair": "C_Pair (Air Power: CQ + μ·CH - μ_z·CT)",
         "lambda": "λ (Total Mean Inflow)",
         "lambda_i": "λ_i (Induced Mean Inflow)",
         "L_D_eff": "(L/D)_eff (Effective Rotor L/D Ratio)",
