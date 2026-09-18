@@ -801,7 +801,7 @@ $
 The vector profile-power identity is
 
 $
-C_{P0}
+C_{P0,\mathrm{air}}
 =
 C_{Q0}+\mu C_{H0}-\mu_zC_{T0}.
 $
@@ -814,11 +814,11 @@ C_{Pair}
 =
 K_{\mathrm{ind}}\lambda_iC_{T,\mathrm{lift}}
 +\mu_zC_T
-+C_{P0}
++C_{P0,\mathrm{air}}
 }.
 $
 
-This is the equivalent **energy-balance route**. The $-\mu_zC_{T0}$ term belongs only to the profile-power identity; it must not be confused with the global climb term $+\mu_zC_T$. The two routes are algebraically identical:
+This is the equivalent **energy-balance route**. The $-\mu_zC_{T0}$ term belongs only to the air-relative profile-power identity; it must not be confused with the shaft quantity $C_{P0}=C_{Q0}$ or with the global climb term $+\mu_zC_T$. The two routes are algebraically identical:
 
 $
 \boxed{
@@ -826,7 +826,7 @@ C_Q+\mu C_H
 =
 K_{\mathrm{ind}}\lambda_iC_{T,\mathrm{lift}}
 +\mu_zC_T
-+C_{P0}
++C_{P0,\mathrm{air}}
 }.
 $
 
@@ -892,17 +892,17 @@ C_{Pair}
 =
 K_{\mathrm{ind}}\lambda_iC_{T,\mathrm{lift}}
 +\mu_zC_T
-+C_{P0}
++C_{P0,\mathrm{air}}
 },
 $
 
 with
 
 $
-C_{P0}=C_{Q0}+\mu C_{H0}-\mu_zC_{T0}.
+C_{P0,\mathrm{air}}=C_{Q0}+\mu C_{H0}-\mu_zC_{T0}.
 $
 
-For $\mu_z>0$ (climb in the zBET convention), $+\mu_zC_T$ is the climb-power contribution. The axial profile term $-\mu_zC_{T0}$ is part of $C_{P0}$ only.
+For $\mu_z>0$ (climb in the zBET convention), $+\mu_zC_T$ is the climb-power contribution. The axial profile term $-\mu_zC_{T0}$ is part of $C_{P0,\mathrm{air}}$ only.
 
 
 ### 7.3 Effective rotor lift-to-drag ratio
