@@ -12,11 +12,14 @@ import pandas as pd
 import pytest
 
 from zBET import (
+    INDUCED_TORQUE_MODEL,
     FX_COLEMAN,
     FY_COLEMAN,
     INFLOW_MODELS,
+    K_IND,
     MODELS,
     OUTPUTS,
+    PROFILE_DRAG_MODEL,
     BladePitch,
     BladeSolidity,
     Geometry,
@@ -135,10 +138,12 @@ def test_figure_of_merit_and_lift_to_drag_ratio():
     # Nominal hover (CT = 0.022):
     th_nom = collective_pitch(GEOM, ct_hover_target=0.022)
     hover_nom = coefficients(0.0, 0.0, th_nom, GEOM, "uniform")
-    assert hover_nom["FoM"] == pytest.approx(0.85246, rel=0.02)
+    ideal = hover_nom["CT"] ** 1.5 / math.sqrt(2.0)
+    expected_fom = ideal / (K_IND * ideal + hover_nom["CQ0"])
+    assert hover_nom["FoM"] == pytest.approx(expected_fom, rel=1e-12)
     assert hover_nom["L_D_eff"] == pytest.approx(0.0)
     assert hover_nom["CPair"] == pytest.approx(
-        hover_nom["lambda_i"] * hover_nom["CT"] + hover_nom["CQ0"]
+        K_IND * hover_nom["lambda_i"] * hover_nom["CT"] + hover_nom["CQ0"]
     )
 
     # Hover with arbitrary theta0:
@@ -146,13 +151,13 @@ def test_figure_of_merit_and_lift_to_drag_ratio():
     assert hover["FoM"] > 0.40
     assert hover["L_D_eff"] == pytest.approx(0.0)
     assert hover["CPair"] == pytest.approx(
-        hover["lambda_i"] * hover["CT"] + hover["CQ0"]
+        K_IND * hover["lambda_i"] * hover["CT"] + hover["CQ0"]
     )
 
     # Forward flight (mu = 0.3):
     fwd = coefficients(0.3, 0.0, 0.12, GEOM, "coleman_feingold")
     assert fwd["CPair"] == pytest.approx(
-        fwd["lambda_i"] * fwd["CT"]
+        K_IND * fwd["lambda_i"] * fwd["CT"]
         + 0.3 * fwd["CHi"]
         + fwd["CQ0"]
         + 0.3 * fwd["CH0"],
@@ -173,7 +178,9 @@ def test_vectorial_profile_integral_matches_low_order_factors():
     sigma = geom.sigma
     cd0 = geom.cd0
 
-    ch0, cq0 = profile_drag_coefficients(mu, 0.0, geom)
+    ch0, cq0 = profile_drag_coefficients(
+        mu, 0.0, geom, profile_drag_model="analytical_vectorial"
+    )
 
     # Low-order vectorial limits.
     assert ch0 == pytest.approx(3.0 * sigma * cd0 * mu / 8.0, rel=5e-3)
@@ -194,7 +201,7 @@ def test_cpair_uses_energy_balance_and_expanded_profile_power():
 
     cp0_air = result["CQ0"] + mu * result["CH0"]
     expected = (
-        result["lambda_i"] * result["CT"]
+        K_IND * result["lambda_i"] * result["CT"]
         + mu_z * result["CT"]
         + mu * result["CHi"]
         + cp0_air
@@ -202,7 +209,7 @@ def test_cpair_uses_energy_balance_and_expanded_profile_power():
     assert result["CPair"] == pytest.approx(expected, rel=1e-12)
 
     expanded = (
-        result["lambda_i"] * result["CT"]
+        K_IND * result["lambda_i"] * result["CT"]
         + mu_z * result["CT"]
         + mu * result["CHi"]
         + result["CQ0"]
@@ -274,7 +281,10 @@ def test_cqi_matches_direct_bet_torque_expression():
     """CQi is obtained from the BET torque expression, never from power balance."""
     mu, mu_z = 0.3, 0.03
     pitch = BladePitch("constant", 0.12, 0.12, 0.12, GEOM.root_cutout)
-    result = coefficients(mu, mu_z, pitch, GEOM, "uniform")
+    result = coefficients(
+        mu, mu_z, pitch, GEOM, "uniform",
+        induced_torque_model="analytical_bet",
+    )
 
     b_val = GEOM.b_factor()
     _, i_mom, t_mom = radial_moments(GEOM, pitch, b=b_val)
@@ -293,16 +303,53 @@ def test_cqi_matches_direct_bet_torque_expression():
     assert result["CQi"] == pytest.approx(expected, rel=1e-12)
 
 
-def test_profile_drag_solver_has_one_vectorial_path():
-    """Profile force/torque production uses only the direct vectorial integral."""
-    ch0, cq0 = profile_drag_coefficients(0.25, 0.01, GEOM)
-    assert np.isfinite(ch0)
-    assert np.isfinite(cq0)
-    assert ch0 > 0.0
-    assert cq0 > 0.0
+def test_explicit_aerodynamic_models_are_the_defaults():
+    assert PROFILE_DRAG_MODEL == "numerical_vectorial"
+    assert INDUCED_TORQUE_MODEL == "energy_balance"
+    assert K_IND == pytest.approx(1.15)
 
 
-def test_coefficient_decomposition_uses_direct_torques():
+def test_energy_balance_cqi_uses_kind():
+    mu, mu_z = 0.3, 0.03
+    result = coefficients(
+        mu, mu_z, 0.12, GEOM, "uniform",
+        induced_torque_model="energy_balance",
+        k_ind=K_IND,
+    )
+    expected = K_IND * result["lambda_i"] * result["CT"] + mu_z * result["CT"] - mu * result["CHi"]
+    assert result["CQi"] == pytest.approx(expected, rel=1e-12)
+
+
+def test_three_profile_drag_paths_are_selectable():
+    values = {}
+    for profile_model in (
+        "analytical_tangential",
+        "analytical_vectorial",
+        "numerical_vectorial",
+    ):
+        result = coefficients(
+            0.25, 0.01, 0.12, GEOM, "uniform",
+            profile_drag_model=profile_model,
+            induced_torque_model="analytical_bet",
+        )
+        values[profile_model] = result
+        assert result["CQ"] == pytest.approx(result["CQi"] + result["CQ0"])
+        assert result["CH"] == pytest.approx(result["CHi"] + result["CH0"])
+
+    assert values["analytical_tangential"]["CH0"] < values["analytical_vectorial"]["CH0"]
+
+
+def test_aerodynamic_model_selectors_are_strict():
+    with pytest.raises(ValueError, match="profile_drag_model"):
+        profile_drag_coefficients(0.2, 0.0, GEOM, profile_drag_model="complete")
+    with pytest.raises(ValueError, match="induced_torque_model"):
+        coefficients(
+            0.2, 0.0, 0.12, GEOM, "uniform",
+            induced_torque_model="complete",
+        )
+
+
+def test_coefficient_decomposition_uses_selected_torques():
     result = coefficients(0.25, 0.01, 0.12, GEOM, "uniform")
     assert result["CQ"] == pytest.approx(result["CQi"] + result["CQ0"])
     assert result["CH"] == pytest.approx(result["CHi"] + result["CH0"])
@@ -324,6 +371,12 @@ def test_csv_is_named_zbet_and_separate_model_csvs(tmp_path):
         assert "CPair" in m_df.columns
         assert "sigma_ref" in m_df.columns
         assert "sigma_geom" in m_df.columns
+        assert "profile_drag_model" in m_df.columns
+        assert "induced_torque_model" in m_df.columns
+        assert "K_ind" in m_df.columns
+        assert (m_df["profile_drag_model"] == PROFILE_DRAG_MODEL).all()
+        assert (m_df["induced_torque_model"] == INDUCED_TORQUE_MODEL).all()
+        assert np.allclose(m_df["K_ind"].to_numpy(), K_IND)
 
     assert (tmp_path / "zBET_coleman.csv").is_file()
 

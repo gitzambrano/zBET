@@ -6,28 +6,39 @@ For the equations, assumptions, implementation mapping, and literature cross-che
 
 ---
 
-## Aerodynamic Method
+## Aerodynamic Models
 
-zBET uses fixed aerodynamic paths rather than selectable torque/power closures:
+zBET restores the explicit aerodynamic selectors:
 
-- $C_{Qi}$ is obtained from the BET torque expression.
-- $C_{Q0}$ and $C_{H0}$ are obtained from direct vectorial radial × azimuthal integration of profile drag.
-- $C_Q=C_{Qi}+C_{Q0}$.
-- `CPair` is computed separately from an energy balance.
+- `INDUCED_TORQUE_MODEL = "analytical_bet"`: direct BET torque integral for $C_{Qi}$.
+- `INDUCED_TORQUE_MODEL = "energy_balance"`: infer $C_{Qi}$ from
+  $K_{\mathrm{ind}}\lambda_iC_T+\mu_zC_T-\mu C_{Hi}$.
+- `PROFILE_DRAG_MODEL = "analytical_tangential"`
+- `PROFILE_DRAG_MODEL = "analytical_vectorial"`
+- `PROFILE_DRAG_MODEL = "numerical_vectorial"`
 
-The tangential-only profile formulas are retained in the theory documentation only as a comparison showing what is lost when radial velocity is omitted. They are not used by the solver.
+Defaults:
 
-The principal loads are:
+```python
+INDUCED_TORQUE_MODEL = "energy_balance"
+PROFILE_DRAG_MODEL = "numerical_vectorial"
+K_IND = 1.15
+```
+
+$K_{\mathrm{ind}}$ is used in energy-balance quantities: the energy-balance torque mode, `CPair`, and hover FoM. It is not inserted into the direct BET torque integral.
+
+The principal outputs are:
 
 | Quantity | Formulation |
 | --- | --- |
-| $C_T$ | Analytical weighted-moment BET |
-| $C_{Hi}$, $C_Y$ | Analytical weighted-moment BET |
-| $C_{Mx}$, $C_{My}$ | Analytical weighted-moment BET |
-| $C_{H0}$, $C_{Q0}$ | Direct vectorial profile-drag quadrature |
-| $C_{Qi}$ | Direct BET torque expression |
+| $C_T$ | BET |
+| $C_{Hi}$ | BET |
+| $C_{Qi}$ | selected direct-BET or energy-balance closure |
+| $C_{H0}$, $C_{Q0}$ | selected profile-drag model |
 | $C_Q$ | $C_{Qi}+C_{Q0}$ |
-| $C_{Pair}$ | Energy balance |
+| $C_{P0,\mathrm{air}}$ | $C_{Q0}+\mu C_{H0}$ |
+| $C_{Pair}$ | $K_{\mathrm{ind}}\lambda_iC_T+\mu_zC_T+\mu C_{Hi}+C_{P0,\mathrm{air}}$ |
+| FoM | hover energy balance with $K_{\mathrm{ind}}$ |
 
 
 ---
@@ -89,7 +100,7 @@ This keeps execution fast while preserving the main physics needed for conceptua
   - Optional Prandtl-Glauert lift-slope correction
 - **Outputs**
   - $C_T,C_Q,C_{Qi},C_{Q0},C_H,C_{Hi},C_{H0},C_Y,C_{Mx},C_{My}$
-  - $C_{Pair}=\lambda_iC_T+\mu_zC_T+\mu C_{Hi}+C_{P0,\mathrm{air}}$
+  - $C_{Pair}=K_{\mathrm{ind}}\lambda_iC_T+\mu_zC_T+\mu C_{Hi}+C_{P0,\mathrm{air}}$
   - $C_{P0,\mathrm{air}}=C_{Q0}+\mu C_{H0}$
   - Effective rotor $L/D$
   - Hover figure of merit

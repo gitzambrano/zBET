@@ -7,8 +7,9 @@
 - analytical radial moments for the main blade-element loads;
 - global momentum theory for mean induced velocity;
 - first-harmonic inflow-gradient models;
-- direct vectorial numerical quadrature for profile drag; and
-- a separate energy balance for the reported air-power coefficient `CPair`.
+- selectable profile-drag formulations;
+- selectable direct-BET or energy-balance induced torque; and
+- an energy balance for the reported air-power coefficient `CPair`.
 
 The implementation is deliberately lighter than a comprehensive rotorcraft analysis. It does **not** solve blade dynamics, cyclic trim, nonlinear airfoil tables, dynamic stall, or a local momentum equation at each annulus.
 
@@ -21,16 +22,38 @@ The implementation has been checked against the formulation and interpretation u
 
 Both references distinguish the **general blade-element force integration** from the **closed-form formulas obtained after simplifying assumptions**. Johnson also shows that force-balance and energy-balance methods are equivalent when they are built from the same assumptions and load model.
 
-### 1.2 Fixed aerodynamic paths
+### 1.2 Aerodynamic model selectors
 
-zBET does not switch between torque and power closures. The production path is fixed:
+zBET exposes two independent selectors.
 
-- $C_{Qi}$ is obtained from the BET torque integral;
-- $C_{Q0}$ and $C_{H0}$ are obtained from direct vectorial profile-drag integration;
-- $C_Q=C_{Qi}+C_{Q0}$;
-- `CPair` is evaluated separately from an energy balance.
+**Induced shaft torque**
 
-Tangential-only profile formulas are analytical references only and are not used by the solver.
+- `analytical_bet`: compute $C_{Qi}$ from the direct BET torque integral;
+- `energy_balance`: infer $C_{Qi}$ by reversing the energy balance,
+
+$$
+\boxed{
+C_{Qi}
+=
+K_{\mathrm{ind}}\lambda_iC_T
++
+\mu_zC_T
+-
+\mu C_{Hi}
+}.
+$$
+
+The default is `energy_balance`.
+
+**Profile drag**
+
+- `analytical_tangential`: tangential-only closed-form $C_{H0}$ and $C_{Q0}$;
+- `analytical_vectorial`: low-order vectorial closed form;
+- `numerical_vectorial`: direct radial/azimuthal vector quadrature.
+
+The default is `numerical_vectorial`.
+
+$K_{\mathrm{ind}}$ is used only by energy-balance quantities: the `energy_balance` torque closure, $C_{Pair}$, and hover figure of merit. It is not inserted into the direct BET torque integral.
 
 ---
 
@@ -509,28 +532,93 @@ $$
 
 These expressions are independent of the profile-drag torque integration described below.
 
-### 6.3 Direct vectorial profile-force and torque integration
+### 6.3 Profile-drag selector
 
-The profile-drag calculation uses
+All profile models return $C_{H0}$ and $C_{Q0}$.
+
+#### Tangential analytical model
+
+Neglecting the radial component of profile drag,
 
 $$
-u_T=x+\mu\sin\psi,
-\qquad
-u_R=\mu\cos\psi,
-\qquad
-W=\sqrt{u_T^2+u_R^2+\mu_z^2}.
+\boxed{
+C_{H0}^{\mathrm{tang}}
+=
+\frac{C_{d0}\mu}{2}I_1
+}
 $$
 
-The longitudinal profile force and shaft torque are evaluated directly as
+and
+
+$$
+\boxed{
+C_{Q0}^{\mathrm{tang}}
+=
+\frac{C_{d0}}2
+\left(
+I_3+\frac{\mu^2}{2}I_1
+\right)
+}.
+$$
+
+For a rectangular blade without root cutout,
+
+$$
+C_{H0}^{\mathrm{tang}}=\frac{\sigma C_{d0}}4\mu,
+\qquad
+C_{Q0}^{\mathrm{tang}}=\frac{\sigma C_{d0}}8(1+\mu^2).
+$$
+
+#### Low-order vectorial analytical model
+
+Retaining the leading vector corrections gives
+
+$$
+\boxed{
+C_{H0}^{\mathrm{vec}}
+=
+\frac{3C_{d0}\mu}{4}I_1
+}
+$$
+
+and
+
+$$
+\boxed{
+C_{Q0}^{\mathrm{vec}}
+=
+\frac{C_{d0}}2
+\left[
+I_3+
+\left(
+\frac34\mu^2+\frac12\mu_z^2
+\right)I_1
+\right]
+}.
+$$
+
+For a rectangular blade in edgewise flight without root cutout,
+
+$$
+C_{H0}^{\mathrm{vec}}\simeq\frac{3\sigma C_{d0}}8\mu,
+\qquad
+C_{Q0}^{\mathrm{vec}}\simeq\frac{\sigma C_{d0}}8(1+1.5\mu^2).
+$$
+
+#### Numerical vectorial model
+
+The numerical model evaluates
 
 $$
 \boxed{
 C_{H0}
 =
-\frac{C_{d0}}{2}
+\frac{C_{d0}}2
 \int_{x_0}^{1}
 \sigma(x)
-\left\langle W(x\sin\psi+\mu)\right\rangle_\psi dx
+\left\langle
+W(x\sin\psi+\mu)
+\right\rangle_\psi dx
 }
 $$
 
@@ -540,40 +628,33 @@ $$
 \boxed{
 C_{Q0}
 =
-\frac{C_{d0}}{2}
+\frac{C_{d0}}2
 \int_{x_0}^{1}
 \sigma(x)
-\left\langle W u_T x\right\rangle_\psi dx
-}.
+\left\langle
+Wu_Tx
+\right\rangle_\psi dx
+}
 $$
 
-zBET evaluates these expressions with radial × azimuthal Gauss-Legendre quadrature over the physical blade span.
-
-For a rectangular blade, the low-order vector expansion in edgewise flight gives
+with
 
 $$
-C_{H0}\simeq\frac{3\sigma C_{d0}}8\mu,
+u_T=x+\mu\sin\psi,
 \qquad
-C_{Q0}\simeq\frac{\sigma C_{d0}}8(1+1.5\mu^2).
+u_R=\mu\cos\psi,
+\qquad
+W=\sqrt{u_T^2+u_R^2+\mu_z^2}.
 $$
 
-> **Tangential approximation — reference only**
->
-> If radial velocity is omitted and drag is treated as purely tangential,
-> $$
-> C_{H0}^{\mathrm{tang}}=\frac{\sigma C_{d0}}4\mu,
-> \qquad
-> C_{Q0}^{\mathrm{tang}}=\frac{\sigma C_{d0}}8(1+\mu^2).
-> $$
-> zBET does not use these values. They only show what is lost when the profile-drag vector is not integrated.
+The physical blade span $x_0\le x\le1$ is used for profile drag.
+### 6.4 Induced shaft torque selector
 
-### 6.4 Induced shaft torque from the BET torque integral
+For `analytical_bet`, $C_{Qi}$ is obtained directly from the moment of the lift-induced in-plane force about the shaft:
 
-$C_{Qi}$ is obtained directly from the moment of the lift-induced in-plane force about the shaft:
-
-$
+$$
 \boxed{
-C_{Qi}
+C_{Qi}^{\mathrm{BET}}
 =
 \frac12
 \int_{x_0}^{B}
@@ -587,30 +668,30 @@ C_{Qi}
 \frac{\lambda_{1c}^2+\lambda_{1s}^2}{2}x^3
 \right]dx
 }.
-$
+$$
 
-For the analytical radial moments this integral is equivalent to
+For `energy_balance`, the same shaft-torque component is inferred from the power balance:
 
-$
-C_{Qi}
+$$
+\boxed{
+C_{Qi}^{\mathrm{EB}}
 =
-\frac{a}{2}
-\left[
-\left(\lambda+\frac{\mu\lambda_{1s}}2\right)T_2
--\lambda^2I_1
--\frac{\lambda_{1c}^2+\lambda_{1s}^2}{2}I_3
-\right].
-$
+K_{\mathrm{ind}}\lambda_iC_T
++
+\mu_zC_T
+-
+\mu C_{Hi}
+}.
+$$
 
-The code evaluates the integral directly. No power balance is used to infer $C_{Qi}$.
-
+Thus $K_{\mathrm{ind}}$ appears in the energy-balance torque mode, but not in the direct BET torque mode.
 ### 6.5 Total shaft torque
 
 $$
 \boxed{C_Q=C_{Qi}+C_{Q0}}.
 $$
 
-The $C_{Qi}$ and $C_{Q0}$ calculations are purely force/torque calculations. Power accounting is introduced only in the performance section.
+$C_Q$ always remains $C_{Qi}+C_{Q0}$. Which expression supplies $C_{Qi}$ and $C_{Q0}$ is controlled by the two selectors above.
 
 ### 6.6 Scope of the mixed analytical/numerical formulation
 
@@ -641,7 +722,7 @@ Power is introduced here, after the torque calculation.
 For uniform induced velocity,
 
 $$
-C_{Pi}=\lambda_iC_T.
+C_{Pi}=K_{\mathrm{ind}}\lambda_iC_T.
 $$
 
 The climb contribution is
@@ -662,7 +743,7 @@ $$
 \boxed{
 C_{Pair}
 =
-\lambda_iC_T
+K_{\mathrm{ind}}\lambda_iC_T
 +
 \mu_zC_T
 +
@@ -686,7 +767,7 @@ $$
 \boxed{
 C_{Pair}
 =
-\lambda_iC_T
+K_{\mathrm{ind}}\lambda_iC_T
 +
 \mu_zC_T
 +
@@ -703,7 +784,7 @@ Since $C_H=C_{Hi}+C_{H0}$,
 $$
 C_{Pair}
 =
-\lambda_iC_T
+K_{\mathrm{ind}}\lambda_iC_T
 +
 \mu_zC_T
 +
@@ -755,12 +836,37 @@ $$
 
 ### 7.4 Hover figure of merit
 
+The ideal hover power coefficient is
+
 $$
+C_{P,\mathrm{ideal}}
+=
+\frac{C_T^{3/2}}{\sqrt2}.
+$$
+
+The performance model uses
+
+$$
+C_{P,\mathrm{hover}}
+=
+K_{\mathrm{ind}}
+\frac{C_T^{3/2}}{\sqrt2}
++
+C_{Q0},
+$$
+
+so
+
+$$
+\boxed{
 FoM
 =
-\frac{C_T^{3/2}}
-{\sqrt{2}\,C_Q}.
+\frac{C_T^{3/2}/\sqrt2}
+{K_{\mathrm{ind}}C_T^{3/2}/\sqrt2+C_{Q0}}
+}.
 $$
+
+This definition keeps $K_{\mathrm{ind}}$ in the hover energy balance even when the direct BET torque selector is used.
 
 ---
 
@@ -854,7 +960,14 @@ These limitations are compatible with the intended use of zBET as a rapid concep
 
 ### Torque and profile paths
 
-There are no torque/profile model selectors. $C_{Qi}$ uses the BET torque expression, while $C_{H0}$ and $C_{Q0}$ use direct vectorial profile-drag integration.
+- `INDUCED_TORQUE_MODEL = "analytical_bet"`
+- `INDUCED_TORQUE_MODEL = "energy_balance"` (default)
+- `PROFILE_DRAG_MODEL = "analytical_tangential"`
+- `PROFILE_DRAG_MODEL = "analytical_vectorial"`
+- `PROFILE_DRAG_MODEL = "numerical_vectorial"` (default)
+- `K_IND = 1.15` by default
+
+`K_IND` affects the energy-balance torque mode, `CPair`, and hover FoM. It does not modify the direct BET torque integral.
 
 ---
 
