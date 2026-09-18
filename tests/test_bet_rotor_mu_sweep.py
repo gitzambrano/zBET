@@ -182,8 +182,8 @@ def test_profile_drag_vectorial_low_order_matches_classical_factors():
     assert cq_t == pytest.approx(sigma * cd0 / 8.0 * (1.0 + mu * mu))
     assert cq_v == pytest.approx(sigma * cd0 / 8.0 * (1.0 + 1.5 * mu * mu))
 
-    cp0_vectorial = cq_v + mu * ch_v
-    assert cp0_vectorial == pytest.approx(
+    cp0_air_vectorial = cq_v + mu * ch_v
+    assert cp0_air_vectorial == pytest.approx(
         sigma * cd0 / 8.0 * (1.0 + 4.5 * mu * mu)
     )
 

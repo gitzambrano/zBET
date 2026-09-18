@@ -923,7 +923,8 @@ def coefficients(
     # The climb contribution +mu_z*CT is already embedded in CQ through the
     # energy-balance torque closure. Equivalently:
     # CPair = K_IND*lambda_i*CT_lift + mu_z*CT + CP0_air,
-    # where CP0_air = CQ0 + mu*CH0 - mu_z*CT0.
+    # where CP0_shaft = CQ0 and
+    # CP0_air = CQ0 + mu*CH0 - mu_z*CT0.
     cp_air = cq_total + mu * ch_total
 
     # 3. Effective rotor L/D ratio in forward flight: (L/D)_eff = mu * CT / CPair
