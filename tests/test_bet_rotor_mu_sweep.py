@@ -53,12 +53,12 @@ _GOLDEN_BENCHMARK = {
         "col": {"CT": 0.014166362049137127, "CQ": 0.0009524068974002862, "CQi": 0.0005302056341694758, "CQ0": 0.0004222012632308104, "CH": 0.0004252295976127065, "CHi": 0.00019091275901725752, "CH0": 0.00023431683859544898, "CY": -7.615365725934588e-05, "CMy": 0.003072472303638786, "CMx": -0.0035689562049137135, "lambda": 0.03488902759818302, "lambda_i": 0.03488902759818302}
     },
     "0.4:-0.02": {
-        "unif": {"CT": 0.02419516169433569, "CQ": 0.000800695080314181, "CQi": 0.000312541767255478, "CQ0": 0.00048815331305870305, "CH": 0.0006058926807034027, "CHi": 0.00011200153222657268, "CH0": 0.00049389114847683, "CY": -0.0, "CMy": 0.0, "CMx": -0.008487032338867138, "lambda": 0.010234058134738, "lambda_i": 0.030234058134738},
-        "col": {"CT": 0.02419516169433569, "CQ": 0.000800695080314181, "CQi": 0.000312541767255478, "CQ0": 0.00048815331305870305, "CH": 0.0006058926807034027, "CHi": 0.00011200153222657268, "CH0": 0.00049389114847683, "CY": -0.00036926970733901817, "CMy": 0.0030872141969559863, "CMx": -0.008487032338867138, "lambda": 0.010234058134738, "lambda_i": 0.030234058134738}
+        "unif": {"CT": 0.024212779734286357, "CQ": 0.000800695080314181, "CQi": 0.000312541767255478, "CQ0": 0.00048815331305870305, "CH": 0.0006058926807034027, "CHi": 0.00011200153222657268, "CH0": 0.00049389114847683, "CY": -0.0, "CMy": 0.0, "CMx": -0.008487032338867138, "lambda": 0.010234058134738, "lambda_i": 0.030234058134738},
+        "col": {"CT": 0.024212779734286357, "CQ": 0.000800695080314181, "CQi": 0.000312541767255478, "CQ0": 0.00048815331305870305, "CH": 0.0006058926807034027, "CHi": 0.00011200153222657268, "CH0": 0.00049389114847683, "CY": -0.00036926970733901817, "CMy": 0.0030872141969559863, "CMx": -0.008487032338867138, "lambda": 0.010234058134738, "lambda_i": 0.030234058134738}
     },
     "0.6:0.02": {
-        "unif": {"CT": 0.021991350432869473, "CQ": 0.0011143103828352052, "CQi": 0.0005252242778435747, "CQ0": 0.0005890861049916305, "CH": 0.0014337583346541675, "CHi": 0.0006285509740278318, "CH0": 0.0008052073606263356, "CY": -0.0, "CMy": 0.0, "CMx": -0.010427805129860843, "lambda": 0.03828892385647123, "lambda_i": 0.018288923856471233},
-        "col": {"CT": 0.021991350432869473, "CQ": 0.0011143103828352052, "CQi": 0.0005252242778435747, "CQ0": 0.0005890861049916305, "CH": 0.0014337583346541675, "CHi": 0.0006285509740278318, "CH0": 0.0008052073606263356, "CY": -2.104761020896054e-05, "CMy": 0.0017975172840317669, "CMx": -0.010427805129860843, "lambda": 0.03828892385647123, "lambda_i": 0.018288923856471233}
+        "unif": {"CT": 0.021970906909166478, "CQ": 0.0011143103828352052, "CQi": 0.0005252242778435747, "CQ0": 0.0005890861049916305, "CH": 0.0014337583346541675, "CHi": 0.0006285509740278318, "CH0": 0.0008052073606263356, "CY": -0.0, "CMy": 0.0, "CMx": -0.010427805129860843, "lambda": 0.03828892385647123, "lambda_i": 0.018288923856471233},
+        "col": {"CT": 0.021970906909166478, "CQ": 0.0011143103828352052, "CQi": 0.0005252242778435747, "CQ0": 0.0005890861049916305, "CH": 0.0014337583346541675, "CHi": 0.0006285509740278318, "CH0": 0.0008052073606263356, "CY": -2.104761020896054e-05, "CMy": 0.0017975172840317669, "CMx": -0.010427805129860843, "lambda": 0.03828892385647123, "lambda_i": 0.018288923856471233}
     },
 }
 
@@ -150,10 +150,63 @@ def test_figure_of_merit_and_lift_to_drag_ratio():
 
     # Forward flight (mu = 0.3):
     fwd = coefficients(0.3, 0.0, 0.12, GEOM, "coleman_feingold")
-    assert fwd["CPair"] == pytest.approx(fwd["CQ"] + 0.3 * fwd["CH"], rel=1e-12)
+    assert fwd["CPair"] == pytest.approx(
+        fwd["CQ"] + 0.3 * fwd["CH"] - 0.0 * fwd["CT"], rel=1e-12
+    )
     expected_ld = 0.3 * fwd["CT"] / fwd["CPair"]
     assert fwd["L_D_eff"] == pytest.approx(expected_ld, rel=1e-12)
     assert fwd["L_D_eff"] > 0.0
+
+
+def test_profile_drag_vectorial_low_order_matches_classical_factors():
+    """Validates the tangential and vectorial closed forms against Johnson low-order factors."""
+    geom = Geometry(
+        1000.0, 1.4, 5.7, 0.0, 0.016,
+        resolve_solidity("sigma_ref", sigma_ref=0.20, root_cutout=0.0),
+    )
+    mu = 0.2
+    sigma = geom.sigma
+    cd0 = geom.cd0
+
+    ct_t, ch_t, cq_t = profile_drag_coefficients(
+        mu, 0.0, geom, profile_drag_model="analytical_tangential"
+    )
+    ct_v, ch_v, cq_v = profile_drag_coefficients(
+        mu, 0.0, geom, profile_drag_model="analytical_vectorial"
+    )
+
+    assert ct_t == pytest.approx(0.0)
+    assert ct_v == pytest.approx(0.0)
+    assert ch_t == pytest.approx(sigma * cd0 * mu / 4.0)
+    assert ch_v == pytest.approx(3.0 * sigma * cd0 * mu / 8.0)
+    assert cq_t == pytest.approx(sigma * cd0 / 8.0 * (1.0 + mu * mu))
+    assert cq_v == pytest.approx(sigma * cd0 / 8.0 * (1.0 + 1.5 * mu * mu))
+
+    cp0_vectorial = cq_v + mu * ch_v
+    assert cp0_vectorial == pytest.approx(
+        sigma * cd0 / 8.0 * (1.0 + 4.5 * mu * mu)
+    )
+
+
+def test_numerical_vectorial_computes_ct0_and_air_power_identity():
+    """Checks normal profile drag and the complete translational-work bookkeeping."""
+    mu, mu_z = 0.3, 0.03
+    result = coefficients(
+        mu, mu_z, 0.12, GEOM, "uniform",
+        profile_drag_model="numerical_vectorial",
+        induced_torque_model="energy_balance",
+    )
+    assert result["CT0"] < 0.0
+    assert result["CPair"] == pytest.approx(
+        result["CQ"] + mu * result["CH"] - mu_z * result["CT"], rel=1e-12
+    )
+
+    descending = coefficients(
+        mu, -mu_z, 0.12, GEOM, "uniform",
+        profile_drag_model="numerical_vectorial",
+        induced_torque_model="energy_balance",
+    )
+    assert descending["CT0"] > 0.0
 
 
 def test_axial_input_sign_conventions_and_collective_modes():
@@ -217,7 +270,7 @@ def test_linear_twist_with_hover_target():
 
 def test_explicit_aerodynamic_models_are_the_defaults():
     """Verifies the default aerodynamic model selectors."""
-    assert PROFILE_DRAG_MODEL == "numerical_profile"
+    assert PROFILE_DRAG_MODEL == "numerical_vectorial"
     assert INDUCED_TORQUE_MODEL == "energy_balance"
     assert K_IND == pytest.approx(1.15)
 
@@ -226,17 +279,17 @@ def test_energy_balance_cqi_is_shaft_torque_not_power():
     """Verifies that energy-balance CQi excludes translational work mu*CHi."""
     mu, mu_z = 0.3, 0.03
     result = coefficients(mu, mu_z, 0.12, GEOM, "uniform")
-    power_form = K_IND * result["lambda_i"] * result["CT"] + mu_z * result["CT"]
+    ct_lift = result["CT"] - result["CT0"]
+    power_form = K_IND * result["lambda_i"] * ct_lift + mu_z * ct_lift
     assert result["CQi"] == pytest.approx(power_form - mu * result["CHi"])
     assert result["CQi"] < power_form
 
 
 def test_aerodynamic_model_selectors_are_strict():
-    """Rejects the removed legacy model names instead of silently aliasing them."""
-    with pytest.raises(ValueError, match="profile_drag_model"):
-        profile_drag_coefficients(0.2, 0.0, GEOM, profile_drag_model="complete")
-    with pytest.raises(ValueError, match="profile_drag_model"):
-        profile_drag_coefficients(0.2, 0.0, GEOM, profile_drag_model="simple_bet")
+    """Rejects removed generic and superseded selector names instead of aliasing them."""
+    for legacy in ("complete", "simple_bet", "analytical_bet", "numerical_profile"):
+        with pytest.raises(ValueError, match="profile_drag_model"):
+            profile_drag_coefficients(0.2, 0.0, GEOM, profile_drag_model=legacy)
     with pytest.raises(ValueError, match="induced_torque_model"):
         coefficients(
             0.2,
@@ -257,30 +310,31 @@ def test_aerodynamic_model_selectors_are_strict():
         )
 
 
-def test_analytical_and_higher_fidelity_paths_are_selectable():
-    """Checks both explicit selector families and preserves coefficient decompositions."""
-    analytical = coefficients(
-        0.25,
-        0.01,
-        0.12,
-        GEOM,
-        "uniform",
-        profile_drag_model="analytical_bet",
+def test_three_profile_drag_paths_are_selectable():
+    """Checks all three explicit profile-drag formulations and force decompositions."""
+    tangential = coefficients(
+        0.25, 0.01, 0.12, GEOM, "uniform",
+        profile_drag_model="analytical_tangential",
         induced_torque_model="analytical_bet",
     )
-    higher_fidelity = coefficients(
-        0.25,
-        0.01,
-        0.12,
-        GEOM,
-        "uniform",
-        profile_drag_model="numerical_profile",
+    vectorial = coefficients(
+        0.25, 0.01, 0.12, GEOM, "uniform",
+        profile_drag_model="analytical_vectorial",
+        induced_torque_model="analytical_bet",
+    )
+    numerical = coefficients(
+        0.25, 0.01, 0.12, GEOM, "uniform",
+        profile_drag_model="numerical_vectorial",
         induced_torque_model="energy_balance",
     )
-    for result in (analytical, higher_fidelity):
+    for result in (tangential, vectorial, numerical):
         assert result["CQ"] == pytest.approx(result["CQi"] + result["CQ0"])
         assert result["CH"] == pytest.approx(result["CHi"] + result["CH0"])
-    assert analytical["CQ"] != pytest.approx(higher_fidelity["CQ"])
+        assert "CT0" in result
+    assert tangential["CT0"] == pytest.approx(0.0)
+    assert vectorial["CT0"] < 0.0
+    assert numerical["CT0"] < 0.0
+    assert tangential["CH0"] < vectorial["CH0"]
 
 
 def test_csv_is_named_zbet_and_separate_model_csvs(tmp_path):
@@ -332,8 +386,8 @@ def test_sweep_and_separate_model_plots(tmp_path):
     assert "CPair" in df.columns
     plot_results(df, tmp_path)
     pngs = list(tmp_path.glob("*.png"))
-    # 14 outputs * 4 models = 56 files (+ 14 alias _coleman.png = 70)
-    assert len(pngs) >= 56
+    # One plot per configured output and inflow model, plus Coleman aliases.
+    assert len(pngs) >= len(OUTPUTS) * len(INFLOW_MODELS)
     assert any("cpair" in p.name for p in pngs)
     assert any("l_d_eff" in p.name for p in pngs)
 
@@ -354,10 +408,21 @@ def test_tip_loss_modes():
     expected_b = 1.0 - math.sqrt(2.0 * 0.022) / 4
     assert b_siss == pytest.approx(expected_b, rel=1e-5)
 
-    # Physical effect: with tip loss enabled, thrust at given pitch decreases slightly
+    # Physical effect: with tip loss enabled, lift-generated thrust decreases.
     res_none = coefficients(0.0, 0.0, 0.15, g_none, "uniform")
     res_fixed = coefficients(0.0, 0.0, 0.15, g_fixed, "uniform")
     assert res_fixed["CT"] < res_none["CT"]
+
+    # Profile drag still acts over the physical blade to x=1 and must not be
+    # truncated at the effective lift radius B.
+    for profile_model in (
+        "analytical_tangential",
+        "analytical_vectorial",
+        "numerical_vectorial",
+    ):
+        p_none = profile_drag_coefficients(0.3, 0.02, g_none, profile_model)
+        p_fixed = profile_drag_coefficients(0.3, 0.02, g_fixed, profile_model)
+        assert p_fixed == pytest.approx(p_none, rel=1e-12, abs=1e-14)
 
 
 def test_prandtl_glauert_compressibility():

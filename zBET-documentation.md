@@ -27,17 +27,17 @@ zBET uses two independent selectors whose names describe the physics directly.
 
 | Selector | `"analytical_bet"` | Higher-fidelity alternative |
 | --- | --- | --- |
-| `PROFILE_DRAG_MODEL` | closed-form BET profile force and torque | `"numerical_profile"`: radial × azimuthal Gauss-Legendre profile-drag quadrature |
+| `PROFILE_DRAG_MODEL` | `"analytical_tangential"`: classical tangential-only closed form | `"analytical_vectorial"`: low-order vector closed form; `"numerical_vectorial"`: radial × azimuthal vector quadrature |
 | `INDUCED_TORQUE_MODEL` | direct analytical BET induced torque | `"energy_balance"`: energy-balance shaft-torque closure with `K_IND` |
 
 The defaults are
 
 ```python
-PROFILE_DRAG_MODEL = "numerical_profile"
+PROFILE_DRAG_MODEL = "numerical_vectorial"
 INDUCED_TORQUE_MODEL = "energy_balance"
 ```
 
-These selectors are intentionally independent. The principal lift-induced loads—$C_T$, $C_{Hi}$, $C_Y$, $C_{Mx}$, and $C_{My}$—always use the analytical weighted-moment formulation. Only the profile contribution $C_{H0},C_{Q0}$ and the induced torque $C_{Qi}$ switch formulation.
+These selectors are intentionally independent. The lift-generated normal load, $C_{Hi}$, $C_Y$, $C_{Mx}$, and $C_{My}$ use the analytical weighted-moment formulation. The profile selector supplies $C_{T0}$, $C_{H0}$, and $C_{Q0}$; the reported total normal coefficient is $C_T=C_{T,\mathrm{lift}}+C_{T0}$. The mean-inflow closure and induced-power bookkeeping continue to use the lift-generated $C_{T,\mathrm{lift}}$, so profile drag is not double-counted as induced power.
 
 There is no generic “simple” or “complete” aerodynamic mode.
 
@@ -520,17 +520,55 @@ These expressions are independent of `PROFILE_DRAG_MODEL` and `INDUCED_TORQUE_MO
 
 ### 6.3 Profile-drag models
 
-The profile contribution is separated into shaft torque and longitudinal force:
+Johnson's profile-force formulation resolves the local drag vector into normal, longitudinal, and shaft-torque contributions. With
 
 $$
-C_{Q0},
+u_T=x+\mu\sin\psi,
 \qquad
-C_{H0}.
+u_R=\mu\cos\psi,
 $$
 
-#### Analytical profile model
+and the imposed axial component $\mu_z$,
 
-With `PROFILE_DRAG_MODEL = "analytical_bet"`,
+$$
+W=\sqrt{u_T^2+u_R^2+\mu_z^2}.
+$$
+
+For constant section drag coefficient, the vectorial profile contributions are
+
+$$
+C_{T0}
+=
+\frac{C_{d0}}{2}
+\int \sigma(x)
+\left\langle W(-\mu_z)\right\rangle_\psi dx,
+$$
+
+$$
+C_{H0}
+=
+\frac{C_{d0}}{2}
+\int \sigma(x)
+\left\langle W(x\sin\psi+\mu)\right\rangle_\psi dx,
+$$
+
+$$
+C_{Q0}
+=
+\frac{C_{d0}}{2}
+\int \sigma(x)
+\left\langle W u_T x\right\rangle_\psi dx.
+$$
+
+The profile drag is integrated over the **physical blade span** $x_0\le x\le1$. An effective lift tip-loss radius $B<1$ does not truncate skin-friction/profile drag on the material blade.
+
+#### Analytical tangential model
+
+With `PROFILE_DRAG_MODEL = "analytical_tangential"`, radial and axial profile-drag projections are neglected. The implemented formulas are
+
+$$
+C_{T0}=0,
+$$
 
 $$
 C_{H0}
@@ -547,91 +585,107 @@ I_3+\frac{\mu^2I_1}{2}
 \right).
 $$
 
-For a rectangular blade with $x_0=0$ and $B=1$,
-
-$$
-C_{Q0}
-=
-\frac{\sigma C_{d0}}{8}
-\left(1+\mu^2\right),
-$$
-
-and
+For a rectangular blade with $x_0=0$,
 
 $$
 C_{H0}
 =
-\frac{\sigma C_{d0}}{4}\mu.
+\frac{\sigma C_{d0}}{4}\mu,
+\qquad
+C_{Q0}
+=
+\frac{\sigma C_{d0}}{8}(1+\mu^2).
 $$
 
-This is sometimes confused with the familiar profile-**power** formula. The aerodynamic power associated with profile drag is
+The corresponding edgewise profile power relative to the air is
 
 $$
 C_{P0,\mathrm{air}}
 =
-C_{Q0}+\mu C_{H0},
-$$
-
-which gives
-
-$$
-C_{P0,\mathrm{air}}
+C_{Q0}+\mu C_{H0}
 =
-\frac{\sigma C_{d0}}{8}
-\left(1+3\mu^2\right).
+\frac{\sigma C_{d0}}{8}(1+3\mu^2).
 $$
 
-Thus the zBET shaft-torque expression is consistent with the classical simple profile-power result once translational profile work is included.
+#### Analytical vectorial model
 
-#### Numerical profile model
-
-With `PROFILE_DRAG_MODEL = "numerical_profile"`, zBET uses Gauss-Legendre quadrature in radius and azimuth. The implemented kinematics are
-
-$$
-u_T=x+\mu\sin\psi,
-$$
-
-$$
-u_R=\mu\cos\psi,
-$$
+With `PROFILE_DRAG_MODEL = "analytical_vectorial"`, zBET uses the low-order expansion
 
 $$
 W
-=
-\sqrt{
-u_T^2+u_R^2+\mu_z^2
-}.
+\simeq
+x+\mu\sin\psi
++\frac{\mu^2\cos^2\psi+\mu_z^2}{2x}.
 $$
 
-The profile contributions are evaluated as
+After azimuthal averaging, the retained terms give
+
+$$
+C_{T0}
+=
+-\frac{C_{d0}\mu_z I_1}{2},
+$$
 
 $$
 C_{H0}
 =
-\frac{C_{d0}}{2}
-\int_{x_0}^{B}
-\sigma(x)
-\left\langle
-W\left(x\sin\psi+\mu\right)
-\right\rangle_\psi
-dx,
+\frac{3C_{d0}\mu I_1}{4},
 $$
 
 $$
 C_{Q0}
 =
 \frac{C_{d0}}{2}
-\int_{x_0}^{B}
-\sigma(x)
-\left\langle
-W u_T x
-\right\rangle_\psi
-dx.
+\left[
+I_3+
+\left(
+\frac{3}{4}\mu^2+\frac{1}{2}\mu_z^2
+\right)I_1
+\right].
 $$
 
-This numerical path captures radial velocity and reverse-flow sign changes in the profile projections more faithfully than the simple closed form.
+For a rectangular blade with $x_0=0$ and $\mu_z=0$,
 
-> **Implementation limitation:** the current profile-speed magnitude uses the imposed axial component $\mu_z$, not the induced normal velocity $\lambda_d$. Therefore this is best described as a **numerical profile-drag correction**, not a complete three-dimensional section-force solution.
+$$
+C_{H0}
+=
+\frac{3\sigma C_{d0}}{8}\mu,
+$$
+
+$$
+C_{Q0}
+=
+\frac{\sigma C_{d0}}{8}
+(1+1.5\mu^2).
+$$
+
+Therefore
+
+$$
+C_{P0,\mathrm{air}}
+=
+C_{Q0}+\mu C_{H0}
+=
+\frac{\sigma C_{d0}}{8}
+(1+4.5\mu^2).
+$$
+
+This distinction is essential: the familiar $1+4.5\mu^2$ (and Bennett's $1+4.65\mu^2$ approximation) is a **profile-power** factor, not a shaft-torque factor. Assigning it directly to $C_{Q0}$ double-counts the translational work $\mu C_{H0}$.
+
+#### Numerical vectorial model
+
+With `PROFILE_DRAG_MODEL = "numerical_vectorial"`, zBET evaluates the three vector projections above directly with radial × azimuthal Gauss-Legendre quadrature. It therefore captures radial-flow effects, reverse-flow sign changes in $u_T$, the axial profile-force contribution $C_{T0}$, and the exact local speed magnitude for the stated constant-$C_{d0}$ model.
+
+The numerical model still uses the imposed axial component $\mu_z$ in the profile-drag kinematics rather than the local induced normal velocity. It is therefore a vectorial **profile-drag** model, not a full nonlinear section-force solver.
+
+The total reported normal coefficient is
+
+$$
+C_T=C_{T,\mathrm{lift}}+C_{T0}.
+$$
+
+The mean-inflow solve and induced-power model use $C_{T,\mathrm{lift}}$ so that the viscous profile contribution is not counted as induced loading.
+
 
 ### 6.4 Induced shaft-torque models
 
@@ -696,41 +750,64 @@ $$
 
 ### 6.5 Energy consistency of the `energy_balance` torque model
 
-The total aerodynamic power transferred to the air is
+Shaft power is
 
-$
+$$
+C_{P,\mathrm{shaft}}=C_Q.
+$$
+
+Aerodynamic power relative to the undisturbed air includes translational work of the hub:
+
+$$
 C_{P,\mathrm{air}}
 =
-C_Q+\mu C_H.
-$
+C_Q+\mu C_H-\mu_z C_T.
+$$
+
+For purely edgewise flight ($\mu_z=0$), this reduces to the familiar
+
+$$
+C_{P,\mathrm{air}}=C_Q+\mu C_H.
+$$
 
 Using
 
-$
-C_H=C_{Hi}+C_{H0}
-$
+$$
+C_H=C_{Hi}+C_{H0},
+\qquad
+C_T=C_{T,\mathrm{lift}}+C_{T0},
+$$
 
-and `INDUCED_TORQUE_MODEL = "energy_balance"` gives
+and `INDUCED_TORQUE_MODEL = "energy_balance"`,
 
-$
+$$
+C_{Qi}
+=
+K_{\mathrm{ind}}\lambda_iC_{T,\mathrm{lift}}
++\mu_zC_{T,\mathrm{lift}}
+-\mu C_{Hi}.
+$$
+
+Therefore
+
+$$
 C_{P,\mathrm{air}}
 =
-K_{\mathrm{ind}}\lambda_iC_T
+K_{\mathrm{ind}}\lambda_iC_{T,\mathrm{lift}}
 +
-\mu_zC_T
-+
-C_{Q0}
-+
-\mu C_{H0}.
-$
+\left(
+C_{Q0}+\mu C_{H0}-\mu_z C_{T0}
+\right).
+$$
 
-The induced in-plane term cancels between shaft torque and translational work. This is the intended energy bookkeeping of the `energy_balance` torque formulation.
+The induced in-plane and imposed-axial translational terms cancel exactly. The remaining profile term is Johnson's profile-power identity. This keeps shaft torque, translational work, induced power, and profile dissipation distinct.
+
 
 ### 6.6 Relationship between the selector choices
 
 The two selectors are independent. $C_T$, $C_{Hi}$, $C_Y$, $C_{Mx}$, and $C_{My}$ retain the same analytical weighted-moment formulation, while `PROFILE_DRAG_MODEL` changes the profile-drag calculation and `INDUCED_TORQUE_MODEL` changes the induced shaft-torque calculation.
 
-The `analytical_bet` and higher-fidelity alternatives are not required to agree numerically. They approach one another only when the numerical profile quadrature approaches the assumptions of the closed-form profile model and when the energy-balance torque uses assumptions compatible with the direct analytical BET torque.
+The tangential, analytical-vectorial, and numerical-vectorial profile models are not required to agree numerically. The analytical-vectorial model is the low-order expansion of the same vector kinematics used by the numerical-vectorial model, so they approach one another as $\mu$ and $|\mu_z|$ become small. The tangential model intentionally omits radial and axial profile-force components.
 
 ### 6.7 Fully integrated force balance
 
@@ -754,9 +831,7 @@ zBET therefore keeps its current mixed analytical/numerical architecture explici
 ### 7.1 Shaft power
 
 $$
-P_{\mathrm{shaft}}
-=
-Q\Omega.
+P_{\mathrm{shaft}}=Q\Omega.
 $$
 
 In coefficient form,
@@ -765,17 +840,26 @@ $$
 C_{P,\mathrm{shaft}}=C_Q.
 $$
 
-### 7.2 Total aerodynamic power transferred to the air
+No $\mu C_H$ term belongs to shaft power: $C_Q$ is the mechanical torque coefficient about the rotor axis.
 
-For forward motion,
+### 7.2 Aerodynamic power relative to the air
+
+The hub also translates through the air. The corresponding aerodynamic work is
 
 $$
 C_{P,\mathrm{air}}
 =
-C_Q+\mu C_H.
+C_Q+\mu C_H-\mu_zC_T.
 $$
 
-This distinction is important: $C_Q$ is shaft power coefficient, while $C_Q+\mu C_H$ includes translational work against rotor drag.
+The $\mu C_H$ term is translational work against the rotor's longitudinal force and is **not** contained in $C_Q$. For edgewise flight, $\mu_z=0$ and
+
+$$
+C_{P,\mathrm{air}}=C_Q+\mu C_H.
+$$
+
+zBET reports this quantity as `CPair`.
+
 
 ### 7.3 Effective rotor lift-to-drag ratio
 
@@ -803,7 +887,7 @@ $$
 
 ### 8.1 Tip loss
 
-zBET can use an effective aerodynamic radius $B$ and integrate the analytical moments from $x_0$ to $B$.
+zBET can use an effective aerodynamic radius $B$ and integrate the **lift-induced analytical moments** from $x_0$ to $B$. Profile drag is integrated over the physical blade span $x_0$ to $1$, because the blade material still produces drag outside the effective lift radius.
 
 The optional Sissingh-style relation is
 
@@ -846,7 +930,9 @@ The current implementation is intentionally compact. Important limitations are:
 - no local annular momentum iteration;
 - no full reverse-flow airfoil model;
 - first-harmonic prescribed inflow gradients rather than a free wake;
-- profile quadrature is numerical, but the lift-induced loads remain analytical;
+- the vectorial profile models use constant `CD0`; they do not include a local airfoil polar;
+- the numerical-vectorial path uses imposed $\mu_z$ in profile kinematics rather than local induced normal velocity;
+- lift-induced loads remain analytical even when profile drag is numerical;
 - `INDUCED_TORQUE_MODEL = "energy_balance"` is an energy-balance closure, not direct torque quadrature.
 
 These limitations are compatible with the intended use of zBET as a rapid conceptual-analysis tool. They should be considered before applying the code to high advance ratio, severe descent, stalled conditions, or detailed loads work.
@@ -890,8 +976,9 @@ These limitations are compatible with the intended use of zBET as a rapid concep
 
 - `INDUCED_TORQUE_MODEL = "analytical_bet"`: direct analytical induced torque
 - `INDUCED_TORQUE_MODEL = "energy_balance"`: energy-balance induced torque
-- `PROFILE_DRAG_MODEL = "analytical_bet"`: closed-form BET profile force and torque
-- `PROFILE_DRAG_MODEL = "numerical_profile"`: numerical profile-drag quadrature
+- `PROFILE_DRAG_MODEL = "analytical_tangential"`: classical tangential-only profile drag
+- `PROFILE_DRAG_MODEL = "analytical_vectorial"`: low-order vectorial profile drag
+- `PROFILE_DRAG_MODEL = "numerical_vectorial"`: numerical vector profile-drag quadrature with $C_{T0}$
 
 ---
 
