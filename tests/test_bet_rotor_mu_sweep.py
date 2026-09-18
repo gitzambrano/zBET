@@ -10,6 +10,7 @@ if str(_REPO_ROOT) not in sys.path:
 import numpy as np
 import pandas as pd
 import pytest
+import zBET as zbet_module
 
 from zBET import (
     INDUCED_TORQUE_MODEL,
@@ -158,7 +159,6 @@ def test_figure_of_merit_and_lift_to_drag_ratio():
     fwd = coefficients(0.3, 0.0, 0.12, GEOM, "coleman_feingold")
     assert fwd["CPair"] == pytest.approx(
         K_IND * fwd["lambda_i"] * fwd["CT"]
-        + 0.3 * fwd["CHi"]
         + fwd["CQ0"]
         + 0.3 * fwd["CH0"],
         rel=1e-12,
@@ -195,7 +195,7 @@ def test_vectorial_profile_integral_matches_low_order_factors():
 
 
 def test_cpair_uses_energy_balance_and_expanded_profile_power():
-    """Checks CPair = induced + climb + translational + profile-air power."""
+    """Checks CPair = induced + climb + profile-air power without double counting CHi."""
     mu, mu_z = 0.3, 0.03
     result = coefficients(mu, mu_z, 0.12, GEOM, "uniform")
 
@@ -203,7 +203,6 @@ def test_cpair_uses_energy_balance_and_expanded_profile_power():
     expected = (
         K_IND * result["lambda_i"] * result["CT"]
         + mu_z * result["CT"]
-        + mu * result["CHi"]
         + cp0_air
     )
     assert result["CPair"] == pytest.approx(expected, rel=1e-12)
@@ -211,11 +210,15 @@ def test_cpair_uses_energy_balance_and_expanded_profile_power():
     expanded = (
         K_IND * result["lambda_i"] * result["CT"]
         + mu_z * result["CT"]
-        + mu * result["CHi"]
         + result["CQ0"]
         + mu * result["CH0"]
     )
     assert result["CPair"] == pytest.approx(expanded, rel=1e-12)
+
+    # In energy-balance torque mode, the shaft/in-plane-force identity closes.
+    assert result["CPair"] == pytest.approx(
+        result["CQ"] + mu * result["CH"], rel=1e-12
+    )
 
 
 def test_axial_input_sign_conventions_and_collective_modes():
@@ -309,6 +312,24 @@ def test_explicit_aerodynamic_models_are_the_defaults():
     assert K_IND == pytest.approx(1.15)
 
 
+def test_energy_balance_does_not_evaluate_direct_induced_torque(monkeypatch):
+    """The energy-balance mode must not call the direct induced-torque integral."""
+    def _forbidden(*args, **kwargs):
+        raise AssertionError("direct induced-torque integral was evaluated")
+
+    monkeypatch.setattr(zbet_module, "induced_torque_coefficient", _forbidden)
+    result = zbet_module.coefficients(
+        0.3,
+        0.02,
+        0.12,
+        GEOM,
+        "uniform",
+        induced_torque_model="energy_balance",
+        k_ind=K_IND,
+    )
+    assert np.isfinite(result["CQi"])
+
+
 def test_energy_balance_cqi_uses_kind():
     mu, mu_z = 0.3, 0.03
     result = coefficients(
@@ -347,6 +368,79 @@ def test_aerodynamic_model_selectors_are_strict():
             0.2, 0.0, 0.12, GEOM, "uniform",
             induced_torque_model="complete",
         )
+
+
+@pytest.mark.parametrize(
+    "induced_mode",
+    ["analytical_bet", "energy_balance"],
+)
+@pytest.mark.parametrize(
+    "profile_mode",
+    ["analytical_tangential", "analytical_vectorial", "numerical_vectorial"],
+)
+def test_all_aerodynamic_selector_combinations(induced_mode, profile_mode):
+    """Exercises the full 2x3 selector matrix and verifies common decompositions."""
+    mu, mu_z = 0.27, 0.015
+    result = coefficients(
+        mu,
+        mu_z,
+        0.12,
+        GEOM,
+        "coleman_feingold",
+        profile_drag_model=profile_mode,
+        induced_torque_model=induced_mode,
+        k_ind=K_IND,
+    )
+
+    assert result["CQ"] == pytest.approx(result["CQi"] + result["CQ0"], rel=1e-12)
+    assert result["CH"] == pytest.approx(result["CHi"] + result["CH0"], rel=1e-12)
+
+    cp0_air = result["CQ0"] + mu * result["CH0"]
+    expected_cpair = (
+        K_IND * result["lambda_i"] * result["CT"]
+        + mu_z * result["CT"]
+        + cp0_air
+    )
+    assert result["CPair"] == pytest.approx(expected_cpair, rel=1e-12)
+
+    if induced_mode == "energy_balance":
+        assert result["CPair"] == pytest.approx(
+            result["CQ"] + mu * result["CH"], rel=1e-12
+        )
+
+
+def test_cpair_is_independent_of_induced_torque_selector():
+    """CPair is always the energy-balance result, regardless of the CQi selector."""
+    kwargs = dict(
+        mu=0.31,
+        mu_z=0.02,
+        pitch_input=0.12,
+        geometry=GEOM,
+        model="drees",
+        profile_drag_model="numerical_vectorial",
+        k_ind=K_IND,
+    )
+    direct = coefficients(induced_torque_model="analytical_bet", **kwargs)
+    energy = coefficients(induced_torque_model="energy_balance", **kwargs)
+
+    assert direct["CPair"] == pytest.approx(energy["CPair"], rel=1e-12)
+    assert direct["CQ0"] == pytest.approx(energy["CQ0"], rel=1e-12)
+    assert direct["CH0"] == pytest.approx(energy["CH0"], rel=1e-12)
+
+
+def test_kind_must_be_positive_for_all_torque_modes():
+    """K_IND is required by CPair/FoM even when CQi uses the direct BET route."""
+    for induced_mode in ("analytical_bet", "energy_balance"):
+        with pytest.raises(ValueError, match="K_IND must be positive"):
+            coefficients(
+                0.2,
+                0.0,
+                0.12,
+                GEOM,
+                "uniform",
+                induced_torque_model=induced_mode,
+                k_ind=0.0,
+            )
 
 
 def test_coefficient_decomposition_uses_selected_torques():

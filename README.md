@@ -8,11 +8,11 @@ For the equations, assumptions, implementation mapping, and literature cross-che
 
 ## Aerodynamic Models
 
-zBET restores the explicit aerodynamic selectors:
+zBET exposes the following aerodynamic selectors:
 
 - `INDUCED_TORQUE_MODEL = "analytical_bet"`: direct BET torque integral for $C_{Qi}$.
 - `INDUCED_TORQUE_MODEL = "energy_balance"`: infer $C_{Qi}$ from
-  $K_{\mathrm{ind}}\lambda_iC_T+\mu_zC_T-\mu C_{Hi}$.
+  $K_{\mathrm{ind}}\lambda_iC_T+\mu_zC_T-\mu C_{Hi}$ without evaluating the direct induced-torque integral.
 - `PROFILE_DRAG_MODEL = "analytical_tangential"`
 - `PROFILE_DRAG_MODEL = "analytical_vectorial"`
 - `PROFILE_DRAG_MODEL = "numerical_vectorial"`
@@ -37,7 +37,7 @@ The principal outputs are:
 | $C_{H0}$, $C_{Q0}$ | selected profile-drag model |
 | $C_Q$ | $C_{Qi}+C_{Q0}$ |
 | $C_{P0,\mathrm{air}}$ | $C_{Q0}+\mu C_{H0}$ |
-| $C_{Pair}$ | $K_{\mathrm{ind}}\lambda_iC_T+\mu_zC_T+\mu C_{Hi}+C_{P0,\mathrm{air}}$ |
+| $C_{Pair}$ | $K_{\mathrm{ind}}\lambda_iC_T+\mu_zC_T+C_{P0,\mathrm{air}}$ |
 | FoM | hover energy balance with $K_{\mathrm{ind}}$ |
 
 
@@ -50,7 +50,7 @@ zBET does not solve a separate local momentum balance at every annulus. Instead,
 1. evaluates blade-element loads using analytical radial moments;
 2. solves one global momentum-theory equation for mean induced velocity;
 3. applies optional first-harmonic inflow gradients; and
-4. uses direct vectorial numerical quadrature for profile drag.
+4. evaluates profile drag with the selected tangential, vectorial analytical, or numerical-vectorial model.
 
 This keeps execution fast while preserving the main physics needed for conceptual rotor studies.
 
@@ -100,7 +100,7 @@ This keeps execution fast while preserving the main physics needed for conceptua
   - Optional Prandtl-Glauert lift-slope correction
 - **Outputs**
   - $C_T,C_Q,C_{Qi},C_{Q0},C_H,C_{Hi},C_{H0},C_Y,C_{Mx},C_{My}$
-  - $C_{Pair}=K_{\mathrm{ind}}\lambda_iC_T+\mu_zC_T+\mu C_{Hi}+C_{P0,\mathrm{air}}$
+  - $C_{Pair}=K_{\mathrm{ind}}\lambda_iC_T+\mu_zC_T+C_{P0,\mathrm{air}}$
   - $C_{P0,\mathrm{air}}=C_{Q0}+\mu C_{H0}$
   - Effective rotor $L/D$
   - Hover figure of merit
