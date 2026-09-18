@@ -10,6 +10,7 @@ if str(_REPO_ROOT) not in sys.path:
 import numpy as np
 import pandas as pd
 import pytest
+import zBET as zbet_module
 
 from zBET import (
     INDUCED_TORQUE_MODEL,
@@ -309,6 +310,24 @@ def test_explicit_aerodynamic_models_are_the_defaults():
     assert PROFILE_DRAG_MODEL == "numerical_vectorial"
     assert INDUCED_TORQUE_MODEL == "energy_balance"
     assert K_IND == pytest.approx(1.15)
+
+
+def test_energy_balance_does_not_evaluate_direct_induced_torque(monkeypatch):
+    """The energy-balance mode must not call the direct induced-torque integral."""
+    def _forbidden(*args, **kwargs):
+        raise AssertionError("direct induced-torque integral was evaluated")
+
+    monkeypatch.setattr(zbet_module, "induced_torque_coefficient", _forbidden)
+    result = zbet_module.coefficients(
+        0.3,
+        0.02,
+        0.12,
+        GEOM,
+        "uniform",
+        induced_torque_model="energy_balance",
+        k_ind=K_IND,
+    )
+    assert np.isfinite(result["CQi"])
 
 
 def test_energy_balance_cqi_uses_kind():
