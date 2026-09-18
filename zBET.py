@@ -852,8 +852,9 @@ def coefficients(
 
     CT, CHi, CY, CMx, and CMy use analytical weighted radial moments.
     PROFILE_DRAG_MODEL selects tangential analytical, vectorial analytical,
-    or vectorial numerical profile drag for CT0/CH0/CQ0. CT is the single
-    reported normal-force coefficient; CT0 is its profile-drag contribution.
+    or vectorial numerical profile drag for CT0/CH0/CQ0. CT is strictly the
+    non-viscous thrust coefficient. CT0 is a separate viscous normal-force
+    contribution and is never added to CT.
     INDUCED_TORQUE_MODEL selects direct analytical BET or the energy-balance
     closure for CQi.
     """
@@ -880,7 +881,6 @@ def coefficients(
 
     ct = ct_bet(mu, lam, lambda_1s, (j, i_mom, t_mom), geometry, a=a)
     ct0, ch0, cq0 = profile_drag_coefficients(mu, mu_z, geometry, profile_drag_model)
-    ct += ct0
 
     # Induced longitudinal H-force CHi:
     chi = 0.25 * a * (lam * mu * t_mom[0] + lambda_1s * (t_mom[2] - 2.0 * lam * i_mom[1]))
@@ -896,13 +896,9 @@ def coefficients(
         if k_ind <= 0.0:
             raise ValueError("K_IND must be positive")
         # Rotor shaft torque energy balance.
-        # CT is the single reported normal-force coefficient. The induced-load
-        # part is CT - CT0; no second thrust coefficient is introduced.
-        cqi = (
-            k_ind * lambda_i * (ct - ct0)
-            + mu_z * (ct - ct0)
-            - mu * chi
-        )
+        # CT is strictly the non-viscous thrust coefficient. CT0 is viscous and
+        # does not enter CT or CQi.
+        cqi = k_ind * lambda_i * ct + mu_z * ct - mu * chi
     elif induced_torque_model == "analytical_bet":
         cqi = cqi_bet
     else:
@@ -927,9 +923,12 @@ def coefficients(
     # Shaft power is CQ. CPair adds the in-plane translational work mu*CH.
     # The climb contribution +mu_z*CT is already embedded in CQ through the
     # energy-balance torque closure. Equivalently:
-    # CPair = K_IND*lambda_i*(CT - CT0) + mu_z*CT + CP0_air,
+    # CPair = CQ + mu*CH.
+    # Equivalent energy-balance form:
+    # CPair = K_IND*lambda_i*CT + mu_z*(CT + CT0) + CP0_air,
     # where CP0_shaft = CQ0 and
     # CP0_air = CQ0 + mu*CH0 - mu_z*CT0.
+    # CT0 is used only in this air-power bookkeeping, never in CT.
     cp_air = cq_total + mu * ch_total
 
     # 3. Effective rotor L/D ratio in forward flight: (L/D)_eff = mu * CT / CPair

@@ -37,7 +37,7 @@ PROFILE_DRAG_MODEL = "numerical_vectorial"
 INDUCED_TORQUE_MODEL = "energy_balance"
 ```
 
-These selectors are intentionally independent. zBET uses one normal-force coefficient, $C_T$. The profile selector also supplies the profile-drag component $C_{T0}$ together with $C_{H0}$ and $C_{Q0}$. Whenever the non-profile normal loading is required, it is written algebraically as $C_T-C_{T0}$; no second thrust coefficient is defined.
+These selectors are intentionally independent. zBET defines $C_T$ strictly as the **non-viscous thrust coefficient**. The profile selector separately supplies the viscous normal-force component $C_{T0}$ together with $C_{H0}$ and $C_{Q0}$. $C_{T0}$ is never added to $C_T$ and never enters the inflow or induced-torque calculation; it is used only in the $C_{Pair}$ air-power bookkeeping.
 
 There is no generic “simple” or “complete” aerodynamic mode.
 
@@ -678,7 +678,7 @@ With `PROFILE_DRAG_MODEL = "numerical_vectorial"`, zBET evaluates the three vect
 
 The numerical model still uses the imposed axial component $\mu_z$ in the profile-drag kinematics rather than the local induced normal velocity. It is therefore a vectorial **profile-drag** model, not a full nonlinear section-force solver.
 
-The reported normal-force coefficient is simply $C_T$. The profile model additionally exposes $C_{T0}$ as a component. The mean-inflow solve and induced-power bookkeeping use $C_T-C_{T0}$ whenever the non-profile normal loading is required.
+The reported thrust coefficient is $C_T$, defined exclusively by the non-viscous loading. The profile model additionally exposes $C_{T0}$ as a separate viscous normal-force component. It is **not** added to $C_T$. The mean-inflow solve and induced-torque model use $C_T$ directly.
 
 
 ### 6.4 Induced shaft-torque models
@@ -771,8 +771,8 @@ and `INDUCED_TORQUE_MODEL = "energy_balance"`,
 $
 C_{Qi}
 =
-K_{\mathrm{ind}}\lambda_i(C_T-C_{T0})
-+\mu_z(C_T-C_{T0})
+K_{\mathrm{ind}}\lambda_iC_T
++\mu_zC_T
 -\mu C_{Hi}.
 $
 
@@ -783,8 +783,8 @@ $
 C_{Pair}
 &=C_Q+\mu C_H \\
 &=
-K_{\mathrm{ind}}\lambda_i(C_T-C_{T0})
-+\mu_z(C_T-C_{T0})
+K_{\mathrm{ind}}\lambda_iC_T
++\mu_zC_T
 +C_{Q0}
 +\mu C_{H0}.
 \end{aligned}
@@ -798,26 +798,26 @@ C_{P0,\mathrm{air}}
 C_{Q0}+\mu C_{H0}-\mu_zC_{T0}.
 $
 
-Using $C_T$ and its profile component $C_{T0}$,
+The equivalent energy-balance route is
 
 $
 \boxed{
 C_{Pair}
 =
-K_{\mathrm{ind}}\lambda_i(C_T-C_{T0})
-+\mu_zC_T
+K_{\mathrm{ind}}\lambda_iC_T
++\mu_z(C_T+C_{T0})
 +C_{P0,\mathrm{air}}
 }.
 $
 
-This is the equivalent **energy-balance route**. The $-\mu_zC_{T0}$ term belongs only to the air-relative profile-power identity; it must not be confused with the shaft quantity $C_{P0}=C_{Q0}$ or with the global climb term $+\mu_zC_T$. The two routes are algebraically identical:
+This is the equivalent **energy-balance route**. Here $C_T$ remains purely non-viscous. The separate $+\mu_zC_{T0}$ in the axial-work term cancels the $-\mu_zC_{T0}$ contained in $C_{P0,\mathrm{air}}$, so $C_{T0}$ affects only the $C_{Pair}$ bookkeeping and never redefines $C_T$. The two routes are algebraically identical:
 
 $
 \boxed{
 C_Q+\mu C_H
 =
-K_{\mathrm{ind}}\lambda_i(C_T-C_{T0})
-+\mu_zC_T
+K_{\mathrm{ind}}\lambda_iC_T
++\mu_z(C_T+C_{T0})
 +C_{P0,\mathrm{air}}
 }.
 $
@@ -882,8 +882,8 @@ $
 \boxed{
 C_{Pair}
 =
-K_{\mathrm{ind}}\lambda_i(C_T-C_{T0})
-+\mu_zC_T
+K_{\mathrm{ind}}\lambda_iC_T
++\mu_z(C_T+C_{T0})
 +C_{P0,\mathrm{air}}
 },
 $
@@ -894,7 +894,7 @@ $
 C_{P0,\mathrm{air}}=C_{Q0}+\mu C_{H0}-\mu_zC_{T0}.
 $
 
-For $\mu_z>0$ (climb in the zBET convention), $+\mu_zC_T$ is the climb-power contribution. The axial profile term $-\mu_zC_{T0}$ is part of $C_{P0,\mathrm{air}}$ only.
+For $\mu_z>0$ (climb in the zBET convention), the axial-work term is $+\mu_z(C_T+C_{T0})$. The $C_{T0}$ part exists only inside the $C_{Pair}$ energy bookkeeping and cancels the $-\mu_zC_{T0}$ contained in $C_{P0,\mathrm{air}}$.
 
 
 ### 7.3 Effective rotor lift-to-drag ratio
