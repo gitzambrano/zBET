@@ -569,10 +569,29 @@ $$
 
 ### 6.4 Induced shaft torque from the BET torque integral
 
-$C_{Qi}$ is always obtained from the lift-force contribution to local shaft torque. After azimuthal averaging, zBET uses
+$C_{Qi}$ is obtained directly from the moment of the lift-induced in-plane force about the shaft:
 
-$$
+$
 \boxed{
+C_{Qi}
+=
+\frac12
+\int_{x_0}^{B}
+\sigma(x)a
+\left[
+\left(\lambda+\frac{\mu\lambda_{1s}}2\right)
+\theta(x)x^2
+-
+\lambda^2x
+-
+\frac{\lambda_{1c}^2+\lambda_{1s}^2}{2}x^3
+\right]dx
+}.
+$
+
+For the analytical radial moments this integral is equivalent to
+
+$
 C_{Qi}
 =
 \frac{a}{2}
@@ -580,11 +599,10 @@ C_{Qi}
 \left(\lambda+\frac{\mu\lambda_{1s}}2\right)T_2
 -\lambda^2I_1
 -\frac{\lambda_{1c}^2+\lambda_{1s}^2}{2}I_3
-\right]
-}.
-$$
+\right].
+$
 
-No power balance is used to infer $C_{Qi}$.
+The code evaluates the integral directly. No power balance is used to infer $C_{Qi}$.
 
 ### 6.5 Total shaft torque
 
