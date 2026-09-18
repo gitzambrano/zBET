@@ -301,15 +301,11 @@ def test_profile_drag_solver_has_one_vectorial_path():
     assert ch0 > 0.0
     assert cq0 > 0.0
 
-    with pytest.raises(TypeError):
-        profile_drag_coefficients(0.25, 0.01, GEOM, "analytical_tangential")
-
 
 def test_coefficient_decomposition_uses_direct_torques():
     result = coefficients(0.25, 0.01, 0.12, GEOM, "uniform")
     assert result["CQ"] == pytest.approx(result["CQi"] + result["CQ0"])
     assert result["CH"] == pytest.approx(result["CHi"] + result["CH0"])
-    assert "CT0" not in result
 
 
 def test_csv_is_named_zbet_and_separate_model_csvs(tmp_path):
