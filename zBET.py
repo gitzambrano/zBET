@@ -879,18 +879,18 @@ def coefficients(
     # Induced longitudinal H-force CHi:
     chi = 0.25 * a * (lam * mu * t_mom[0] + lambda_1s * (t_mom[2] - 2.0 * lam * i_mom[1]))
 
-    # Direct BET induced shaft torque.
-    cqi_bet = induced_torque_coefficient(
-        mu, lam, lambda_1c, lambda_1s, pitch, geometry, a
-    )
+    if k_ind <= 0.0:
+        raise ValueError("K_IND must be positive")
 
     if induced_torque_model == "energy_balance":
-        if k_ind <= 0.0:
-            raise ValueError("K_IND must be positive")
-        # Reverse the energy balance to obtain shaft torque.
+        # Reverse the energy balance to obtain the induced shaft torque.
+        # No direct induced-torque integral is evaluated in this mode.
         cqi = k_ind * lambda_i * ct + mu_z * ct - mu * chi
     elif induced_torque_model == "analytical_bet":
-        cqi = cqi_bet
+        # Direct BET induced shaft torque.
+        cqi = induced_torque_coefficient(
+            mu, lam, lambda_1c, lambda_1s, pitch, geometry, a
+        )
     else:
         raise ValueError("induced_torque_model must be 'analytical_bet' or 'energy_balance'")
 
@@ -912,8 +912,11 @@ def coefficients(
     fom = ideal_hover_power / cp_fom if cp_fom > 0.0 else 0.0
 
     # 2. Air power from the energy balance.
+    # CP0_air already contains the profile translational work mu*CH0.
+    # The lift-generated mu*CHi term is already accounted for when converting
+    # the energy-balance power to CQi and must not be added again here.
     cp0_air = cq0 + mu * ch0
-    cp_air = k_ind * lambda_i * ct + mu_z * ct + mu * chi + cp0_air
+    cp_air = k_ind * lambda_i * ct + mu_z * ct + cp0_air
 
     # 3. Effective rotor L/D ratio in forward flight: (L/D)_eff = mu * CT / CPair
     l_d_eff = (mu * ct / cp_air) if (mu > 1e-6 and cp_air > 1e-12) else 0.0
